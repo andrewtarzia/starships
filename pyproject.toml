@@ -1,0 +1,104 @@
+[build-system]
+requires = ["setuptools", "setuptools_scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cage_construct"
+maintainers = [
+  { name = "Lukas Turcani", email = "lukasturcani93@gmail.com" },
+]
+
+dependencies = [
+  "stk",
+  "stko",
+  "bbprepared",
+  "pywindowx",
+  "chemiscope",
+]
+requires-python = ">=3.11"
+dynamic = ["version"]
+readme = "README.rst"
+description = "Builds things for you."
+
+[project.optional-dependencies]
+dev = [
+  "ruff",
+  "mypy",
+  # TODO: Remove pin when https://github.com/TvoroG/pytest-lazy-fixture/issues/65 is resolved.
+  # pytest-lazy-fixture 0.6.0 is incompatible with pytest 8.0.0
+  "pytest<8",
+  "pytest-benchmark",
+  "pytest-datadir",
+  "pytest-lazy-fixture",
+  "pytest-cov",
+]
+
+[project.scripts]
+build_ligands = "cage_construct._internal.scripts.build_ligands:main"
+build_complexes = "cage_construct._internal.scripts.build_complexes:main"
+build_cages = "cage_construct._internal.scripts.build_cages:main"
+analyse_cages = "cage_construct._internal.scripts.analyse_cages:main"
+
+
+[project.urls]
+github = "https://github.com/andrewtarzia/cage-construction-template"
+documentation = "https://cage_construct.readthedocs.io"
+
+[tool.setuptools_scm]
+
+[tool.setuptools.packages.find]
+where = [
+  # list of folders that contain the packages (["."] by default)
+  "src",
+]
+
+[tool.ruff]
+line-length = 79
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = ["ANN401", "COM812", "ISC001"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+  "D100",
+  "D101",
+  "D102",
+  "D103",
+  "D104",
+  "D105",
+  "D106",
+  "D107",
+  "S101",
+  "INP001",
+]
+"examples/*" = [
+  "INP001",
+]
+"docs/source/conf.py" = ["D100", "INP001"]
+
+[tool.mypy]
+show_error_codes = true
+implicit_optional = false
+warn_no_return = true
+strict_optional = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+warn_unreachable = true
+disallow_any_generics = true
+
+[[tool.mypy.overrides]]
+module = [
+  "bbprep.*",
+  "pywindow.*",
+  "chemiscope.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+addopts = "--cov=src --cov-report term-missing"
