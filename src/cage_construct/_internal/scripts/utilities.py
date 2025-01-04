@@ -118,7 +118,7 @@ def precursors_to_forcefield(  # noqa: PLR0913
     converging: cgx.molecular.Precursor,
     conv_meas: dict[str, float],
     dive_meas: dict[str, float],
-    new_definer_dict: dict[str, tuple] | None = None,
+    new_definer_dict: dict[str, tuple] | None = None,  # type: ignore[type-arg]
 ) -> cgx.forcefields.ForceField:
     """Get a forcefield from precursor definitions."""
     # Define bead libraries.
@@ -154,8 +154,8 @@ def precursors_to_forcefield(  # noqa: PLR0913
         definer_dict["eg"] = ("bond", conv_meas["eg"] / cg_scale, 1e5)
         definer_dict["gb"] = ("bond", conv_meas["gb"] / cg_scale, 1e5)
         definer_dict["dde"] = ("angle", conv_meas["dde"], 1e2)
-        definer_dict["edde"] = ("tors", "0123", 180, 50, 1)
-        definer_dict["mbge"] = ("tors", "0123", 180, 50, 1)
+        definer_dict["edde"] = ("tors", "0123", 180.0, 50.0, 1)  # type: ignore[assignment]
+        definer_dict["mbge"] = ("tors", "0123", 180.0, 50.0, 1)  # type: ignore[assignment]
 
     elif isinstance(converging, cgx.molecular.StericSixBead):
         beads = converging.get_bead_set()
@@ -175,8 +175,8 @@ def precursors_to_forcefield(  # noqa: PLR0913
         definer_dict["ide"] = ("angle", conv_meas["ide"], 1e2)
         definer_dict["did"] = ("angle", 180, 1e2)
         # definer_dict["dis"] = ("angle", 90, 1e2)  # noqa: ERA001
-        definer_dict["edide"] = ("tors", "0134", 180, 50, 1)
-        definer_dict["mbge"] = ("tors", "0123", 180, 50, 1)
+        definer_dict["edide"] = ("tors", "0134", 180, 50, 1)  # type: ignore[assignment]
+        definer_dict["mbge"] = ("tors", "0123", 180, 50, 1)  # type: ignore[assignment]
         definer_dict["i"] = ("nb", conv_meas["ivdw_e"], conv_meas["ivdw_s"])
 
     else:
@@ -190,7 +190,7 @@ def precursors_to_forcefield(  # noqa: PLR0913
         ac = dive_meas["aa"] / 2
         definer_dict["ac"] = ("bond", ac / cg_scale, 1e5)
         definer_dict["bac"] = ("angle", dive_meas["bac"], 1e2)
-        definer_dict["bacab"] = ("tors", "0134", dive_meas["bacab"], 50, 1)
+        definer_dict["bacab"] = ("tors", "0134", dive_meas["bacab"], 50, 1)  # type: ignore[assignment]
     else:
         raise NotImplementedError
 

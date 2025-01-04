@@ -18,7 +18,7 @@ logging.basicConfig(
 
 def plot_xy(
     xproperty: str,
-    ensemble: dict[str:dict],
+    ensemble: dict[str, dict],  # type: ignore[type-arg]
     min_energy: float,
     figure_dir: pathlib.Path,
     ligand_name: str,
@@ -43,10 +43,10 @@ def plot_xy(
     elif xproperty in ("torsion_state",):
         xs = [Counter(ensemble[i][xproperty]) for i in ensemble]
 
-        xs = [i.get("b", 0) for i in xs]
+        xs = [i.get("b", 0) for i in xs]  # type: ignore[misc]
 
         ax.scatter(
-            xs,
+            xs,  # type: ignore[arg-type]
             [(ensemble[i]["energy"] - min_energy) * 2625.5 for i in ensemble],
             edgecolor="k",
             marker="D",
@@ -115,10 +115,10 @@ def main() -> None:
 
     for ligand, ligand_dict in ligands.items():
         logging.info("doing %s", ligand)
-        if "smiles" in ligand_dict:
-            molecule = stk.BuildingBlock(ligand_dict["smiles"])
-        elif "input" in ligand_dict:
-            molecule = stk.BuildingBlock.init_from_file(ligand_dict["input"])
+        if "smiles" in ligand_dict:  # type: ignore[operator]
+            molecule = stk.BuildingBlock(ligand_dict["smiles"])  # type: ignore[index]
+        elif "input" in ligand_dict:  # type: ignore[operator]
+            molecule = stk.BuildingBlock.init_from_file(ligand_dict["input"])  # type: ignore[index]
 
         molecule.write(ligand_dir / f"{ligand}_unopt.mol")
 
@@ -147,7 +147,7 @@ def main() -> None:
         xbins = np.arange(xmin - xwidth, xmax + xwidth, xwidth)
         ax.hist(
             x=relative_energies_kjmol,
-            bins=xbins,
+            bins=list(xbins),
             density=False,
             histtype="stepfilled",
             stacked=True,

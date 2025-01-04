@@ -264,7 +264,7 @@ def main() -> None:  # noqa: PLR0915, C901, PLR0912
             functional_groups=(
                 stk.SingleAtom(stk.Pd(0, charge=2)) for i in range(4)
             ),
-            position_matrix=[[0, 0, 0]],
+            position_matrix=np.array((0, 0, 0)),
         ),
     }
 
@@ -343,7 +343,7 @@ def main() -> None:  # noqa: PLR0915, C901, PLR0912
                 xtb_path=xtb_path,
                 solvent_str="acetonitrile",
             )
-            cage_molecule = cage_molecule.with_centroid((0, 0, 0))
+            cage_molecule = cage_molecule.with_centroid(np.array((0, 0, 0)))
             cage_molecule.write(optc_file)
 
         for buildingblock_name, buildingblock_mol in buildingblocks.items():

@@ -116,10 +116,10 @@ def make_plot(
     structure_dir: pathlib.Path,
     figure_dir: pathlib.Path,
     filename: str,
-) -> dict:
+) -> None:
     """Visualise energies."""
     fig, ax = plt.subplots(figsize=(8, 5))
-    energies = {}
+    energies: dict[str, list[tuple[float, str]]] = {}
     cmap = {
         "1": "tab:blue",
         "2": "tab:orange",
@@ -188,10 +188,10 @@ def make_summary_plot(
     database_path: pathlib.Path,
     figure_dir: pathlib.Path,
     filename: str,
-) -> dict:
+) -> None:
     """Visualise energies."""
     fig, ax = plt.subplots(figsize=(5, 5))
-    energies = {}
+    energies: dict[tuple[str, str], list[tuple[float, str]]] = {}
 
     xs = ["1", "2", "3", "4"]
     ys = ["la_st5", "la_st52", "la_c1"]
@@ -256,8 +256,8 @@ def make_summary_plot(
     ax.set_yticks(list(range(len(ys))))
     ax.set_yticklabels(ys)
 
-    cbar_ax = fig.add_axes([1.01, 0.2, 0.02, 0.7])
-    cmap = mpl.cm.Blues_r
+    cbar_ax = fig.add_axes([1.01, 0.2, 0.02, 0.7])  # type: ignore[call-overload]
+    cmap = mpl.cm.Blues_r  # type: ignore[attr-defined]
     norm = mpl.colors.Normalize(vmin=0, vmax=vmax)
     cbar = fig.colorbar(
         mpl.cm.ScalarMappable(norm=norm, cmap=cmap),
@@ -279,13 +279,14 @@ def make_summary_plot(
         bbox_inches="tight",
     )
     plt.close()
+    raise SystemExit(filename)
 
 
 def make_summary_plot2(
     database_path: pathlib.Path,
     figure_dir: pathlib.Path,
     filename: str,
-) -> dict:
+) -> None:
     """Visualise energies."""
     fig, ax = plt.subplots(figsize=(5, 5))
 
@@ -330,7 +331,7 @@ def make_summary_plot2(
         if entry.properties["num_components"] > 1:
             continue
 
-        systems[(pair, multi)]["data"].append(energy)
+        systems[(pair, multi)]["data"].append(energy)  # type: ignore[attr-defined]
 
         if "_11" in pair:
             count_111 += 1
@@ -377,7 +378,7 @@ def make_summary_plot2(
 
     ax.tick_params(axis="both", which="major", labelsize=16)
     ax.set_xticks(list(range(len(systems))))
-    ax.set_xticklabels([systems[i]["name"] for i in systems], rotation=90)
+    ax.set_xticklabels([systems[i]["name"] for i in systems], rotation=90)  # type: ignore[misc]
     ax.set_ylabel(eb_str(), fontsize=16)
     ax.set_yscale("log")
     ax.set_ylim(0.1, None)

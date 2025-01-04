@@ -84,7 +84,7 @@ def make_plot(
     database_path: pathlib.Path,
     figure_dir: pathlib.Path,
     filename: str,
-) -> dict:
+) -> None:
     """Visualise energies."""
     fig, ax = plt.subplots(figsize=(5, 5))
     vmin = 0
@@ -130,8 +130,8 @@ def make_plot(
     ax.axvline(x=3.4 / (2 * cg_scale), c="k", ls="--", alpha=0.5)
     ax.axvline(x=5.0 / (2 * cg_scale), c="k", ls="--", alpha=0.5)
 
-    cbar_ax = fig.add_axes([1.01, 0.2, 0.02, 0.7])
-    cmap = mpl.cm.Blues_r
+    cbar_ax = fig.add_axes([1.01, 0.2, 0.02, 0.7])  # type: ignore[call-overload]
+    cmap = mpl.cm.Blues_r  # type: ignore[attr-defined]
     norm = mpl.colors.Normalize(vmin=0, vmax=vmax)
     cbar = fig.colorbar(
         mpl.cm.ScalarMappable(norm=norm, cmap=cmap),
@@ -159,7 +159,7 @@ def make_ac_plot(
     database_path: pathlib.Path,
     figure_dir: pathlib.Path,
     filename: str,
-) -> dict:
+) -> None:
     """Visualise energies."""
     fig, ax = plt.subplots(figsize=(3, 5))
     bac = 120
@@ -211,7 +211,7 @@ def make_bac_plot(
     database_path: pathlib.Path,
     figure_dir: pathlib.Path,
     filename: str,
-) -> dict:
+) -> None:
     """Visualise energies."""
     fig, ax = plt.subplots(figsize=(3, 5))
     ac = 1.0

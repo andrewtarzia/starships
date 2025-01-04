@@ -75,7 +75,9 @@ def geom_distributions(  # noqa: C901
         # "Fe_Ni_Ir_Ni_Fe",
     )
 
-    geom_dict = defaultdict(lambda: defaultdict(list))
+    geom_dict: dict[str, dict[str, list[float]]] = defaultdict(
+        lambda: defaultdict(list)
+    )
     database = cgx.utilities.AtomliteDatabase(database_path)
     for entry in database.get_entries():
         for label, gd_data in entry.properties["bond_data"].items():
@@ -120,7 +122,7 @@ def geom_distributions(  # noqa: C901
 
             ax.hist(
                 x=xdata,
-                bins=xbins,
+                bins=list(xbins),
                 density=True,
                 histtype="stepfilled",
                 stacked=True,
@@ -278,8 +280,8 @@ def analyse_cage(
         )
 
         if "s" not in tstr:
-            min_value = -1
-            max_value = -1
+            min_value = -1.0
+            max_value = -1.0
         else:
             min_value = min(ii_dists.values())
             max_value = max(ii_dists.values())
@@ -294,11 +296,13 @@ def make_plot(
     database_path: pathlib.Path,
     figure_dir: pathlib.Path,
     filename: str,
-) -> dict:
+) -> None:
     """Visualise energies."""
     fig, ax = plt.subplots(figsize=(8, 5))
 
-    datas = defaultdict(lambda: defaultdict(list))
+    datas: dict[str, dict[str, list[float]]] = defaultdict(
+        lambda: defaultdict(list)
+    )
     for entry in cgx.utilities.AtomliteDatabase(database_path).get_entries():
         tstr = entry.properties["tstr"]
 
@@ -346,11 +350,13 @@ def ii_plot(
     database_path: pathlib.Path,
     figure_dir: pathlib.Path,
     filename: str,
-) -> dict:
+) -> None:
     """Visualise energies."""
     fig, ax = plt.subplots(figsize=(8, 5))
 
-    datas = defaultdict(lambda: defaultdict(list))
+    datas: dict[str, dict[str, list[float]]] = defaultdict(
+        lambda: defaultdict(list)
+    )
     for entry in cgx.utilities.AtomliteDatabase(database_path).get_entries():
         tstr = entry.properties["tstr"]
 
