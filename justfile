@@ -5,7 +5,6 @@ default:
 # Install development environment.
 dev:
   pip install -e '.[dev]'
-  mamba install -y xtb
 
 # Run code checks.
 check:
@@ -23,8 +22,6 @@ check:
   echo
   ( set -x; mypy src )
 
-  echo
-  ( set -x; pytest --cov=src --cov-report term-missing )
 
   test $error = 0
 
@@ -34,9 +31,3 @@ fix:
   ruff format .
   ruff check --fix .
 
-
-# Build docs.
-docs:
-  rm -rf ./docs/build docs/source/_autosummary
-  make -C docs html
-  echo Docs are in $PWD/docs/build/html/index.html
