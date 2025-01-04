@@ -1,17 +1,12 @@
 :maintainers:
   `andrewtarzia <https://github.com/andrewtarzia/>`_
-:documentation: https://cage_construct.readthedocs.io/en/latest/
 
 
 Overview
 ========
 
-A code base for using `stk <https://stk.readthedocs.io/en/stable/>`_ to
-construct and optimise two porous cage molecules.
+TODO.
 
-Thank you to Lukas Turcani for the initial template this was built on. However,
-there are significant differences due to ``stk`` ecosystem incompatability with
-``uv``.
 
 Installation
 ============
@@ -25,6 +20,9 @@ To run the scripts or develop this code, you can clone the repo and use
 
 Usage
 =====
+
+
+TODO.
 
 I have written this template to build two cages, one porous organic cage and
 one metal-organic cage. Both constructions use ``stk`` alchemical approach.

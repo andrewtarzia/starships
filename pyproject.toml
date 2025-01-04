@@ -25,11 +25,11 @@ dev = [
 ]
 
 [project.scripts]
-build_ligands = "cage_construct._internal.scripts.build_ligands:main"
-build_complexes = "cage_construct._internal.scripts.build_complexes:main"
-build_cages = "cage_construct._internal.scripts.build_cages:main"
-analyse_cages = "cage_construct._internal.scripts.analyse_cages:main"
-
+build_atomistic_models = "cage_construct._internal.scripts.build_atomistic_models:main"
+crest_analysis = "cage_construct._internal.scripts.crest_analysis:main"
+run_angle_scan = "cage_construct._internal.scripts.run_angle_scan:main"
+run_cg_model = "cage_construct._internal.scripts.run_cg_model:main"
+run_steric_targets = "cage_construct._internal.scripts.run_steric_targets:main"
 
 [project.urls]
 github = "https://github.com/andrewtarzia/starships"
@@ -69,5 +69,7 @@ disallow_any_generics = true
 [[tool.mypy.overrides]]
 module = [
   "chemiscope.*",
+  "cgexplore.*",
+  "rdkit.*",
 ]
 ignore_missing_imports = true
