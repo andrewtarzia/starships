@@ -112,7 +112,7 @@ constant_definer_dict = {
 }
 
 
-def precursors_to_forcefield(  # noqa: PLR0913
+def precursors_to_forcefield(  # noqa: PLR0913, C901, PLR0915
     pair: str,
     diverging: cgx.molecular.Precursor,
     converging: cgx.molecular.Precursor,
@@ -164,23 +164,41 @@ def precursors_to_forcefield(  # noqa: PLR0913
             "d" not in beads
             or "e" not in beads
             or "g" not in beads
-            or "s" not in beads
+            or "i" not in beads
         ):
             raise RuntimeError
         definer_dict["di"] = ("bond", conv_meas["dd"] / cg_scale / 2, 1e5)
-        # definer_dict["is"] = ("bond", conv_meas["is"], 1e5)  # noqa: ERA001
         definer_dict["de"] = ("bond", conv_meas["de"] / cg_scale, 1e5)
         definer_dict["eg"] = ("bond", conv_meas["eg"] / cg_scale, 1e5)
         definer_dict["gb"] = ("bond", conv_meas["gb"] / cg_scale, 1e5)
         definer_dict["ide"] = ("angle", conv_meas["ide"], 1e2)
         definer_dict["did"] = ("angle", 180, 1e2)
-        # definer_dict["dis"] = ("angle", 90, 1e2)  # noqa: ERA001
         definer_dict["edide"] = ("tors", "0134", 180, 50, 1)  # type: ignore[assignment]
         definer_dict["mbge"] = ("tors", "0123", 180, 50, 1)  # type: ignore[assignment]
         definer_dict["i"] = ("nb", conv_meas["ivdw_e"], conv_meas["ivdw_s"])
 
-    else:
-        raise NotImplementedError
+    elif isinstance(converging, cgx.molecular.StericSevenBead):
+        beads = converging.get_bead_set()
+
+        if (
+            "d" not in beads
+            or "e" not in beads
+            or "g" not in beads
+            or "i" not in beads
+            or "s" not in beads
+        ):
+            raise RuntimeError
+
+        definer_dict["di"] = ("bond", conv_meas["dd"] / cg_scale / 2, 1e5)
+        definer_dict["de"] = ("bond", conv_meas["de"] / cg_scale, 1e5)
+        definer_dict["eg"] = ("bond", conv_meas["eg"] / cg_scale, 1e5)
+        definer_dict["gb"] = ("bond", conv_meas["gb"] / cg_scale, 1e5)
+        definer_dict["ide"] = ("angle", conv_meas["ide"], 1e2)
+        definer_dict["did"] = ("angle", 180, 1e2)
+        definer_dict["dis"] = ("angle", 90, 1e2)
+        definer_dict["edide"] = ("tors", "0134", 180, 50, 1)  # type: ignore[assignment]
+        definer_dict["mbge"] = ("tors", "0123", 180, 50, 1)  # type: ignore[assignment]
+        definer_dict["s"] = ("nb", conv_meas["svdw_e"], conv_meas["svdw_s"])
 
     if isinstance(diverging, cgx.molecular.TwoC1Arm):
         beads = diverging.get_bead_set()
