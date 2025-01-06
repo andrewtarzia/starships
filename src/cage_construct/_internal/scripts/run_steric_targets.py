@@ -381,10 +381,10 @@ def make_plot(
     ax.tick_params(axis="both", which="major", labelsize=16)
     ax.set_xlabel(r"$\sigma_{s}$  [$\AA$]", fontsize=16)
     ax.set_ylabel(eb_str(), fontsize=16)
-    ax.set_ylim(0, None)
 
     ax.axhspan(ymin=0, ymax=isomer_energy(), facecolor="k", alpha=0.2)
     ax.legend(ncol=3, fontsize=16)
+    ax.set_yscale("log")
 
     fig.tight_layout()
     fig.savefig(
@@ -440,12 +440,14 @@ def ii_plot(  # noqa: C901, PLR0912
 
     if target == "i":
         xlbl = r"min. $r_{i-i}$ [$\AA$]"
+        str_skip = "s"
 
     elif target == "s":
         xlbl = r"min. $r_{s-s}$ [$\AA$]"
+        str_skip = "si"
 
     for tstr, col in cmap.items():
-        if "s" not in tstr:
+        if str_skip not in tstr:
             continue
 
         ax.plot(

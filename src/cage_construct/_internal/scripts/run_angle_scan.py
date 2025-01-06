@@ -245,7 +245,7 @@ def main() -> None:
     database_path = data_dir / "scan.db"
 
     aa_range = [2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0]
-    bac_range = [90, 100, 105, 110, 115, 120, 125, 130, 135, 140, 150]
+    bac_range = [90, 95, 100, 105, 110, 115, 120, 125, 130, 135, 140, 145, 150]
 
     pair = "la_st5"
     converging = cgx.molecular.SixBead(
