@@ -13,6 +13,7 @@ from openmm import OpenMMException
 from rdkit import RDLogger
 
 from .utilities import (
+    Scrambler,
     abead_c,
     abead_d,
     binder_bead,
@@ -36,7 +37,7 @@ def analyse_cage(
     database_path: pathlib.Path,
     name: str,
     forcefield: cgx.forcefields.ForceField,
-    iterator: cgx.scram.Scrambler,
+    iterator: Scrambler,
     topology_code: cgx.scram.TopologyCode,
 ) -> None:
     """Analyse a toy model cage."""
@@ -561,7 +562,7 @@ def main() -> None:  # noqa: PLR0915
 
             for multiplier in pairs[pair]["multipliers"]:
                 # Define a connectivity based on a multiplier.
-                iterator = cgx.scram.Scrambler(
+                iterator = Scrambler(
                     multiplier=multiplier,
                     stoichiometry=pairs[pair]["stoichiometry_L_L_M"],
                     tetra_bb=tetra_bb,
