@@ -229,8 +229,7 @@ def make_bac_plot(
     plt.close()
 
 
-def main() -> None:
-    """Run script."""
+def aa_vs_bac_scan() -> None:
     wd = pathlib.Path("/home/atarzia/workingspace/starships/")
     calculation_dir = wd / "scan_calculations"
     calculation_dir.mkdir(exist_ok=True)
@@ -377,6 +376,161 @@ def main() -> None:
         figure_dir=figure_dir,
         filename="scan_3.png",
     )
+
+
+def dde_vs_bac_scan() -> None:
+    wd = pathlib.Path("/home/atarzia/workingspace/starships/")
+    calculation_dir = wd / "scan_dde_calculations"
+    calculation_dir.mkdir(exist_ok=True)
+    structure_dir = wd / "scan_dde_structures"
+    structure_dir.mkdir(exist_ok=True)
+    ligand_dir = wd / "scan_dde_ligands"
+    ligand_dir.mkdir(exist_ok=True)
+    data_dir = wd / "scan_dde_data"
+    data_dir.mkdir(exist_ok=True)
+    figure_dir = wd / "figures"
+    figure_dir.mkdir(exist_ok=True)
+    database_path = data_dir / "scan_dde.db"
+
+    dde_range = [120, 130, 140, 150, 160, 165, 167.5, 170, 172.5, 175]
+    bac_range = [90, 95, 100, 105, 110, 115, 120, 125, 130, 135, 140, 145, 150]
+
+    pair = "la_st5"
+    converging = cgx.molecular.SixBead(
+        bead=cbead_c,
+        abead1=abead_c,
+        abead2=ebead_c,
+    )
+    converging_name = "la"
+    diverging = cgx.molecular.TwoC1Arm(bead=cbead_d, abead1=abead_d)
+    diverging_name = "st5"
+    tetra = cgx.molecular.FourC1Arm(bead=tetra_bead, abead1=binder_bead)
+
+    logging.info("building %s structures", len(dde_range) * len(bac_range))
+    for (i, dde), (j, bac) in it.product(
+        enumerate(dde_range), enumerate(bac_range)
+    ):
+        ligand_measures = {
+            "la": {"dd": 7.0, "de": 1.5, "dde": dde, "eg": 1.4, "gb": 1.4},
+            "st5": {"ba": 2.8, "aa": 3.9, "bac": bac, "bacab": 180},
+        }
+
+        forcefield = precursors_to_forcefield(
+            pair=f"{pair}",
+            diverging=diverging,
+            converging=converging,
+            conv_meas=ligand_measures[converging_name],
+            dive_meas=ligand_measures[diverging_name],
+        )
+
+        converging_bb = cgx.utilities.optimise_ligand(
+            molecule=converging.get_building_block(),
+            name=f"{converging.get_name()}_f{forcefield.get_identifier()}",
+            output_dir=calculation_dir,
+            forcefield=forcefield,
+            platform=None,
+        )
+        converging_bb.write(
+            str(
+                ligand_dir
+                / f"{converging.get_name()}_f{forcefield.get_identifier()}"
+                "_optl.mol"
+            )
+        )
+        converging_bb = converging_bb.clone()
+
+        tetra_bb = cgx.utilities.optimise_ligand(
+            molecule=tetra.get_building_block(),
+            name=f"{tetra.get_name()}_f{forcefield.get_identifier()}",
+            output_dir=calculation_dir,
+            forcefield=forcefield,
+            platform=None,
+        )
+        tetra_bb.write(
+            str(
+                ligand_dir
+                / f"{tetra.get_name()}_f{forcefield.get_identifier()}"
+                "_optl.mol"
+            )
+        )
+        tetra_bb = tetra_bb.clone()
+
+        diverging_bb = cgx.utilities.optimise_ligand(
+            molecule=diverging.get_building_block(),
+            name=f"{diverging.get_name()}_f{forcefield.get_identifier()}",
+            output_dir=calculation_dir,
+            forcefield=forcefield,
+            platform=None,
+        )
+        diverging_bb.write(
+            str(
+                ligand_dir
+                / f"{diverging.get_name()}_f{forcefield.get_identifier()}"
+                "_optl.mol"
+            )
+        )
+        diverging_bb = diverging_bb.clone()
+
+        name = f"scan_{i}-{j}"
+        logging.info("building %s", name)
+
+        cage = stk.ConstructedMolecule(
+            stk.cage.M3L6(
+                building_blocks={
+                    tetra_bb: (0, 1, 2),
+                    converging_bb: (3, 4, 5, 6),
+                    diverging_bb: (7, 8),
+                },
+                vertex_positions=None,
+            )
+        )
+        cage.write(structure_dir / f"{name}_unopt.mol")
+
+        try:
+            conformer = cgx.scram.optimise_cage(
+                molecule=cage,
+                name=name,
+                output_dir=calculation_dir,
+                forcefield=forcefield,
+                platform=None,
+                database_path=database_path,
+            )
+            if conformer is not None:
+                conformer.molecule.with_centroid((0, 0, 0)).write(
+                    str(structure_dir / f"{name}_optc.mol")
+                )
+
+            analyse_cage(
+                database_path=database_path,
+                name=name,
+                forcefield=forcefield,
+                num_building_blocks=9,
+            )
+
+        except OpenMMException:
+            pass
+
+    make_plot(
+        database_path=database_path,
+        figure_dir=figure_dir,
+        filename="scan_4.png",
+    )
+    make_ac_plot(
+        database_path=database_path,
+        figure_dir=figure_dir,
+        filename="scan_5.png",
+    )
+    make_bac_plot(
+        database_path=database_path,
+        figure_dir=figure_dir,
+        filename="scan_6.png",
+    )
+
+
+def main() -> None:
+    """Run script."""
+    aa_vs_bac_scan()
+    dde_vs_bac_scan()
 
 
 if __name__ == "__main__":
