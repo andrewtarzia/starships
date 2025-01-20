@@ -1,5 +1,6 @@
 """Script to generate and optimise CG models."""
 
+import argparse
 import itertools as it
 import logging
 import pathlib
@@ -7,6 +8,7 @@ import pathlib
 import cgexplore as cgx
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import numpy as np
 import stk
 from openmm import OpenMMException
 from rdkit import RDLogger
@@ -19,6 +21,7 @@ from .utilities import (
     cbead_d,
     eb_str,
     ebead_c,
+    isomer_energy,
     precursors_to_forcefield,
     tetra_bead,
 )
@@ -28,6 +31,16 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(message)s",
 )
 RDLogger.DisableLog("rdApp.*")
+
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--run",
+        action="store_true",
+        help="set to iterate through structure functions",
+    )
+    return parser.parse_args()
 
 
 def analyse_cage(
@@ -59,15 +72,77 @@ def make_plot(
 ) -> None:
     """Visualise energies."""
     fig, ax = plt.subplots(figsize=(5, 5))
+    cg_scale = 2
+
+    if filename == "scan_1.png":
+        xoption = "a_c"
+        xoption2 = "a_a"
+        yoption = "b_a_c"
+        red_x = [
+            3.4 / (2 * cg_scale),
+            5.0 / (2 * cg_scale),
+            3.9 / (2 * cg_scale),
+        ]
+        red_y = [90, 110, 120]
+        xlbl = r"$a$-$c$  [$\mathrm{\AA}$]"
+        ylbl = "$b$-$a$-$c$  [$^\\circ$]"
+        ax.axhline(y=90, c="k", ls="--", alpha=0.5)
+        ax.axhline(y=120, c="k", ls="--", alpha=0.5)
+        ax.axvline(x=3.4 / (2 * cg_scale), c="k", ls="--", alpha=0.5)
+        ax.axvline(x=5.0 / (2 * cg_scale), c="k", ls="--", alpha=0.5)
+        xtarget = (3.4 / (2 * cg_scale), 5.0 / (2 * cg_scale))
+        ytarget = (90, 120)
+    elif filename == "scan_4.png":
+        xoption = "d_d_e"
+        xoption2 = None
+        yoption = "b_a_c"
+        red_x = [170] * 3
+        red_y = [90, 110, 120]
+        xlbl = "$d$-$d$-$e$  [$^\\circ$]"
+        ylbl = "$b$-$a$-$c$  [$^\\circ$]"
+        ax.axhline(y=90, c="k", ls="--", alpha=0.5)
+        ax.axhline(y=120, c="k", ls="--", alpha=0.5)
+        ax.axvline(x=170, c="k", ls="--", alpha=0.5)
+        xtarget = (170,)
+        ytarget = (90, 120)
+
+    elif filename == "scan_7.png":
+        xoption = "d_d_e"
+        xoption2 = None
+        yoption = "d_d"
+        red_x = [170]
+        red_y = [7 / cg_scale]
+        xlbl = "$d$-$d$-$e$  [$^\\circ$]"
+        ylbl = r"$d$-$d$  [$\mathrm{\AA}$]"
+        ax.axhline(y=7 / cg_scale, c="k", ls="--", alpha=0.5)
+        ax.axvline(x=170, c="k", ls="--", alpha=0.5)
+        xtarget = (170,)
+        ytarget = (7 / cg_scale,)
+
+    else:
+        raise NotImplementedError
+
     vmin = 0
     vmax = 0.6
     min_energy = float("inf")
     for entry in cgx.utilities.AtomliteDatabase(database_path).get_entries():
-        x = entry.properties["forcefield_dict"]["v_dict"]["a_c"]
-        y = entry.properties["forcefield_dict"]["v_dict"]["b_a_c"]
-        c = entry.properties["energy_per_bb"]
-        logging.info("%s: x:%s, y:%s, e:%s", entry.key, x, y, c)
+        if xoption2 is None:
+            cname = f"{yoption.replace('_', '')}-{xoption.replace('_', '')}"
+        else:
+            cname = f"{yoption.replace('_', '')}-{xoption2.replace('_', '')}"
+        if cname not in entry.key:
+            continue
+        x = float(entry.properties["forcefield_dict"]["v_dict"][xoption])
+        y = float(entry.properties["forcefield_dict"]["v_dict"][yoption])
+        c = float(entry.properties["energy_per_bb"])
         min_energy = min(c, min_energy)
+        if x in xtarget and y in ytarget:
+            logging.info(
+                "target (x:%s, y:%s) E=%s",
+                round(x, 2),
+                round(y, 2),
+                round(c, 2),
+            )
 
         ax.scatter(
             x,
@@ -77,30 +152,24 @@ def make_plot(
             vmax=vmax,
             alpha=1.0,
             edgecolor="k",
-            s=200,
+            s=100,
             marker="s",
             cmap="Blues_r",
         )
 
-    cg_scale = 2
     ax.scatter(
-        [3.4 / (2 * cg_scale), 5.0 / (2 * cg_scale), 3.9 / (2 * cg_scale)],
-        [90, 110, 120],
+        red_x,
+        red_y,
         c="tab:red",
         alpha=1.0,
         edgecolor="k",
-        s=100,
+        s=80,
         marker="X",
     )
 
     ax.tick_params(axis="both", which="major", labelsize=16)
-    ax.set_xlabel(r"$a$-$c$  [$\mathrm{\AA}$]", fontsize=16)
-    ax.set_ylabel("$b$-$a$-$c$  [$^\\circ$]", fontsize=16)
-
-    ax.axhline(y=90, c="k", ls="--", alpha=0.5)
-    ax.axhline(y=120, c="k", ls="--", alpha=0.5)
-    ax.axvline(x=3.4 / (2 * cg_scale), c="k", ls="--", alpha=0.5)
-    ax.axvline(x=5.0 / (2 * cg_scale), c="k", ls="--", alpha=0.5)
+    ax.set_xlabel(xlbl, fontsize=16)
+    ax.set_ylabel(ylbl, fontsize=16)
 
     cbar_ax = fig.add_axes([1.01, 0.2, 0.02, 0.7])  # type: ignore[call-overload]
     cmap = mpl.cm.Blues_r  # type: ignore[attr-defined]
@@ -127,43 +196,39 @@ def make_plot(
     plt.close()
 
 
-def make_ac_plot(
+def make_singular_plot(
     database_path: pathlib.Path,
     figure_dir: pathlib.Path,
     filename: str,
+    cname: str,
+    xoption: str,
+    xlbl: str,
 ) -> None:
     """Visualise energies."""
     fig, ax = plt.subplots(figsize=(3, 5))
-    bac = 120
+
     xs = []
+    cs = []
     energies = []
     for entry in cgx.utilities.AtomliteDatabase(database_path).get_entries():
-        x = entry.properties["forcefield_dict"]["v_dict"]["a_c"]
-        y = entry.properties["forcefield_dict"]["v_dict"]["b_a_c"]
-        if y != bac:
+        if cname not in entry.key:
             continue
+        x = float(entry.properties["forcefield_dict"]["v_dict"][xoption])
 
         xs.append(x)
         energies.append(entry.properties["energy_per_bb"])
-    ax.plot(
-        xs,
-        energies,
-        c="tab:blue",
-        alpha=1.0,
-        mec="k",
-        markersize=8,
-        marker="o",
-    )
+        cs.append(
+            "tab:blue"
+            if float(entry.properties["energy_per_bb"]) < isomer_energy()
+            else "tab:gray"
+        )
 
-    cg_scale = 2
-
+    ax.scatter(xs, energies, c=cs, s=80, alpha=1.0, marker="o", ec="k")
     ax.tick_params(axis="both", which="major", labelsize=16)
-    ax.set_xlabel(r"$a$-$c$  [$\mathrm{\AA}$]", fontsize=16)
+    ax.set_xlabel(xlbl, fontsize=16)
     ax.set_ylabel(eb_str(), fontsize=16)
 
-    ax.axvline(x=3.4 / (2 * cg_scale), c="k", ls="--", alpha=0.5)
-    ax.axvline(x=5.0 / (2 * cg_scale), c="k", ls="--", alpha=0.5)
-    ax.set_ylim(0, 1)
+    ax.set_yscale("log")
 
     fig.tight_layout()
     fig.savefig(
@@ -179,57 +244,9 @@ def make_ac_plot(
     plt.close()
 
 
-def make_bac_plot(
-    database_path: pathlib.Path,
-    figure_dir: pathlib.Path,
-    filename: str,
-) -> None:
-    """Visualise energies."""
-    fig, ax = plt.subplots(figsize=(3, 5))
-    ac = 1.0
-    xs = []
-    energies = []
-    for entry in cgx.utilities.AtomliteDatabase(database_path).get_entries():
-        x = entry.properties["forcefield_dict"]["v_dict"]["a_c"]
-        y = entry.properties["forcefield_dict"]["v_dict"]["b_a_c"]
-        if x != ac:
-            continue
-
-        xs.append(y)
-        energies.append(entry.properties["energy_per_bb"])
-    ax.plot(
-        xs,
-        energies,
-        c="tab:blue",
-        alpha=1.0,
-        mec="k",
-        markersize=8,
-        marker="o",
-    )
-
-    ax.tick_params(axis="both", which="major", labelsize=16)
-    ax.set_xlabel("$b$-$a$-$c$  [$^\\circ$]", fontsize=16)
-    ax.set_ylabel(eb_str(), fontsize=16)
-
-    ax.axvline(x=90, c="k", ls="--", alpha=0.5)
-    ax.axvline(x=120, c="k", ls="--", alpha=0.5)
-    ax.set_ylim(0, 1)
-
-    fig.tight_layout()
-    fig.savefig(
-        figure_dir / filename,
-        dpi=360,
-        bbox_inches="tight",
-    )
-    fig.savefig(
-        figure_dir / filename.replace(".png", ".pdf"),
-        dpi=360,
-        bbox_inches="tight",
-    )
-    plt.close()
-
-
-def aa_vs_bac_scan() -> None:
+def main() -> None:
+    """Run script."""
+    args = _parse_args()
     wd = pathlib.Path("/home/atarzia/workingspace/starships/")
     calculation_dir = wd / "scan_calculations"
     calculation_dir.mkdir(exist_ok=True)
@@ -243,8 +260,10 @@ def aa_vs_bac_scan() -> None:
     figure_dir.mkdir(exist_ok=True)
     database_path = data_dir / "scan.db"
 
-    aa_range = [2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0]
-    bac_range = [90, 95, 100, 105, 110, 115, 120, 125, 130, 135, 140, 145, 150]
+    aa_range = [3.9, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0]
+    bac_range = [120, 90, 95, 100, 105, 110, 115, 125, 130, 135, 140, 145, 150]
+    dde_range = [170, 120, 125, 130, 135, 140, 145, 150, 155, 160, 165, 175]
+    dd_range = [7.0, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0, 9.0]
 
     pair = "la_st5"
     converging = cgx.molecular.SixBead(
@@ -257,280 +276,182 @@ def aa_vs_bac_scan() -> None:
     diverging_name = "st5"
     tetra = cgx.molecular.FourC1Arm(bead=tetra_bead, abead1=binder_bead)
 
-    logging.info("building %s structures", len(aa_range) * len(bac_range))
-    for (i, aa), (j, bac) in it.product(
-        enumerate(aa_range), enumerate(bac_range)
-    ):
-        ligand_measures = {
-            "la": {"dd": 7.0, "de": 1.5, "dde": 170, "eg": 1.4, "gb": 1.4},
-            "st5": {"ba": 2.8, "aa": aa, "bac": bac, "bacab": 180},
-        }
+    combos = {
+        "bac-aa": {"yr": bac_range, "xr": aa_range, "yl": "st5", "xl": "st5"},
+        "bac-dde": {"yr": bac_range, "xr": dde_range, "yl": "st5", "xl": "la"},
+        "dd-dde": {"yr": dd_range, "xr": dde_range, "yl": "la", "xl": "la"},
+    }
+    if args.run:
+        for cname, pair_range_dict in combos.items():
+            # Rewrite each time.
+            ligand_measures = {
+                "la": {"dd": 7.0, "de": 1.5, "dde": 170, "eg": 1.4, "gb": 1.4},
+                "st5": {"ba": 2.8, "aa": 3.9, "bac": 120, "bacab": 180},
+            }
+            for (i, xp), (j, yp) in it.product(
+                enumerate(pair_range_dict["xr"]),
+                enumerate(pair_range_dict["yr"]),
+            ):
+                ypname, xpname = cname.split("-")
+                ligand_measures[pair_range_dict["xl"]][xpname] = xp
+                ligand_measures[pair_range_dict["yl"]][ypname] = yp
 
-        forcefield = precursors_to_forcefield(
-            pair=f"{pair}",
-            diverging=diverging,
-            converging=converging,
-            conv_meas=ligand_measures[converging_name],
-            dive_meas=ligand_measures[diverging_name],
-        )
-
-        converging_bb = cgx.utilities.optimise_ligand(
-            molecule=converging.get_building_block(),
-            name=f"{converging.get_name()}_f{forcefield.get_identifier()}",
-            output_dir=calculation_dir,
-            forcefield=forcefield,
-            platform=None,
-        )
-        converging_bb.write(
-            str(
-                ligand_dir
-                / f"{converging.get_name()}_f{forcefield.get_identifier()}"
-                "_optl.mol"
-            )
-        )
-        converging_bb = converging_bb.clone()
-
-        tetra_bb = cgx.utilities.optimise_ligand(
-            molecule=tetra.get_building_block(),
-            name=f"{tetra.get_name()}_f{forcefield.get_identifier()}",
-            output_dir=calculation_dir,
-            forcefield=forcefield,
-            platform=None,
-        )
-        tetra_bb.write(
-            str(
-                ligand_dir
-                / f"{tetra.get_name()}_f{forcefield.get_identifier()}"
-                "_optl.mol"
-            )
-        )
-        tetra_bb = tetra_bb.clone()
-
-        diverging_bb = cgx.utilities.optimise_ligand(
-            molecule=diverging.get_building_block(),
-            name=f"{diverging.get_name()}_f{forcefield.get_identifier()}",
-            output_dir=calculation_dir,
-            forcefield=forcefield,
-            platform=None,
-        )
-        diverging_bb.write(
-            str(
-                ligand_dir
-                / f"{diverging.get_name()}_f{forcefield.get_identifier()}"
-                "_optl.mol"
-            )
-        )
-        diverging_bb = diverging_bb.clone()
-
-        name = f"scan_{i}-{j}"
-        logging.info("building %s", name)
-
-        cage = stk.ConstructedMolecule(
-            stk.cage.M3L6(
-                building_blocks={
-                    tetra_bb: (0, 1, 2),
-                    converging_bb: (3, 4, 5, 6),
-                    diverging_bb: (7, 8),
-                },
-                vertex_positions=None,
-            )
-        )
-        cage.write(structure_dir / f"{name}_unopt.mol")
-
-        try:
-            conformer = cgx.scram.optimise_cage(
-                molecule=cage,
-                name=name,
-                output_dir=calculation_dir,
-                forcefield=forcefield,
-                platform=None,
-                database_path=database_path,
-            )
-            if conformer is not None:
-                conformer.molecule.with_centroid((0, 0, 0)).write(
-                    str(structure_dir / f"{name}_optc.mol")
+                forcefield = precursors_to_forcefield(
+                    pair=f"{pair}",
+                    diverging=diverging,
+                    converging=converging,
+                    conv_meas=ligand_measures[converging_name],
+                    dive_meas=ligand_measures[diverging_name],
                 )
 
-            analyse_cage(
-                database_path=database_path,
-                name=name,
-                forcefield=forcefield,
-                num_building_blocks=9,
-            )
+                converging_bb = cgx.utilities.optimise_ligand(
+                    molecule=converging.get_building_block(),
+                    name=f"{converging.get_name()}_f{forcefield.get_identifier()}",
+                    output_dir=calculation_dir,
+                    forcefield=forcefield,
+                    platform=None,
+                )
+                converging_bb = converging_bb.clone()
 
-        except OpenMMException:
-            pass
+                tetra_bb = cgx.utilities.optimise_ligand(
+                    molecule=tetra.get_building_block(),
+                    name=f"{tetra.get_name()}_f{forcefield.get_identifier()}",
+                    output_dir=calculation_dir,
+                    forcefield=forcefield,
+                    platform=None,
+                )
+                tetra_bb = tetra_bb.clone()
+
+                diverging_bb = cgx.utilities.optimise_ligand(
+                    molecule=diverging.get_building_block(),
+                    name=f"{diverging.get_name()}_f{forcefield.get_identifier()}",
+                    output_dir=calculation_dir,
+                    forcefield=forcefield,
+                    platform=None,
+                )
+                diverging_bb = diverging_bb.clone()
+
+                name = f"scan_{cname}_{i}-{j}"
+                logging.info("building %s", name)
+
+                cage = stk.ConstructedMolecule(
+                    stk.cage.M3L6(
+                        building_blocks={
+                            tetra_bb: (0, 1, 2),
+                            converging_bb: (3, 4, 5, 6),
+                            diverging_bb: (7, 8),
+                        },
+                        vertex_positions=None,
+                    )
+                )
+                cage.write(structure_dir / f"{name}_unopt.mol")
+
+                si, sj = name.split("_")[2].split("-")
+                potential_names = []
+                potential_names.extend(
+                    [
+                        f"scan_{cname}_{int(si) - 2}-{int(sj) - 2}",
+                        f"scan_{cname}_{int(si) - 1}-{int(sj) - 2}",
+                        f"scan_{cname}_{int(si)}-{int(sj) - 2}",
+                        f"scan_{cname}_{int(si) - 2}-{int(sj) - 1}",
+                        f"scan_{cname}_{int(si) - 1}-{int(sj) - 1}",
+                        f"scan_{cname}_{int(si)}-{int(sj) - 1}",
+                        f"scan_{cname}_{int(si) - 2}-{int(sj)}",
+                        f"scan_{cname}_{int(si) - 1}-{int(sj)}",
+                    ]
+                    for cname in combos
+                )
+
+                try:
+                    conformer = cgx.scram.optimise_cage(
+                        molecule=cage,
+                        name=name,
+                        output_dir=calculation_dir,
+                        forcefield=forcefield,
+                        platform=None,
+                        database_path=database_path,
+                        potential_names=potential_names,
+                    )
+                    if conformer is not None:
+                        conformer.molecule.with_centroid(
+                            np.array((0, 0, 0))
+                        ).write(str(structure_dir / f"{name}_optc.mol"))
+
+                    analyse_cage(
+                        database_path=database_path,
+                        name=name,
+                        forcefield=forcefield,
+                        num_building_blocks=9,
+                    )
+
+                except OpenMMException:
+                    pass
 
     make_plot(
         database_path=database_path,
         figure_dir=figure_dir,
         filename="scan_1.png",
     )
-    make_ac_plot(
+    make_singular_plot(
         database_path=database_path,
         figure_dir=figure_dir,
+        cname="bac-aa",
+        xoption="a_c",
+        xlbl=r"$a$-$c$  [$\mathrm{\AA}$]",
         filename="scan_2.png",
     )
-    make_bac_plot(
+    make_singular_plot(
         database_path=database_path,
         figure_dir=figure_dir,
+        cname="bac-aa",
+        xoption="b_a_c",
+        xlbl="$b$-$a$-$c$  [$^\\circ$]",
         filename="scan_3.png",
     )
-
-
-def dde_vs_bac_scan() -> None:
-    wd = pathlib.Path("/home/atarzia/workingspace/starships/")
-    calculation_dir = wd / "scan_dde_calculations"
-    calculation_dir.mkdir(exist_ok=True)
-    structure_dir = wd / "scan_dde_structures"
-    structure_dir.mkdir(exist_ok=True)
-    ligand_dir = wd / "scan_dde_ligands"
-    ligand_dir.mkdir(exist_ok=True)
-    data_dir = wd / "scan_dde_data"
-    data_dir.mkdir(exist_ok=True)
-    figure_dir = wd / "figures"
-    figure_dir.mkdir(exist_ok=True)
-    database_path = data_dir / "scan_dde.db"
-
-    dde_range = [120, 130, 140, 150, 160, 165, 167.5, 170, 172.5, 175]
-    bac_range = [90, 95, 100, 105, 110, 115, 120, 125, 130, 135, 140, 145, 150]
-
-    pair = "la_st5"
-    converging = cgx.molecular.SixBead(
-        bead=cbead_c,
-        abead1=abead_c,
-        abead2=ebead_c,
-    )
-    converging_name = "la"
-    diverging = cgx.molecular.TwoC1Arm(bead=cbead_d, abead1=abead_d)
-    diverging_name = "st5"
-    tetra = cgx.molecular.FourC1Arm(bead=tetra_bead, abead1=binder_bead)
-
-    logging.info("building %s structures", len(dde_range) * len(bac_range))
-    for (i, dde), (j, bac) in it.product(
-        enumerate(dde_range), enumerate(bac_range)
-    ):
-        ligand_measures = {
-            "la": {"dd": 7.0, "de": 1.5, "dde": dde, "eg": 1.4, "gb": 1.4},
-            "st5": {"ba": 2.8, "aa": 3.9, "bac": bac, "bacab": 180},
-        }
-
-        forcefield = precursors_to_forcefield(
-            pair=f"{pair}",
-            diverging=diverging,
-            converging=converging,
-            conv_meas=ligand_measures[converging_name],
-            dive_meas=ligand_measures[diverging_name],
-        )
-
-        converging_bb = cgx.utilities.optimise_ligand(
-            molecule=converging.get_building_block(),
-            name=f"{converging.get_name()}_f{forcefield.get_identifier()}",
-            output_dir=calculation_dir,
-            forcefield=forcefield,
-            platform=None,
-        )
-        converging_bb.write(
-            str(
-                ligand_dir
-                / f"{converging.get_name()}_f{forcefield.get_identifier()}"
-                "_optl.mol"
-            )
-        )
-        converging_bb = converging_bb.clone()
-
-        tetra_bb = cgx.utilities.optimise_ligand(
-            molecule=tetra.get_building_block(),
-            name=f"{tetra.get_name()}_f{forcefield.get_identifier()}",
-            output_dir=calculation_dir,
-            forcefield=forcefield,
-            platform=None,
-        )
-        tetra_bb.write(
-            str(
-                ligand_dir
-                / f"{tetra.get_name()}_f{forcefield.get_identifier()}"
-                "_optl.mol"
-            )
-        )
-        tetra_bb = tetra_bb.clone()
-
-        diverging_bb = cgx.utilities.optimise_ligand(
-            molecule=diverging.get_building_block(),
-            name=f"{diverging.get_name()}_f{forcefield.get_identifier()}",
-            output_dir=calculation_dir,
-            forcefield=forcefield,
-            platform=None,
-        )
-        diverging_bb.write(
-            str(
-                ligand_dir
-                / f"{diverging.get_name()}_f{forcefield.get_identifier()}"
-                "_optl.mol"
-            )
-        )
-        diverging_bb = diverging_bb.clone()
-
-        name = f"scan_{i}-{j}"
-        logging.info("building %s", name)
-
-        cage = stk.ConstructedMolecule(
-            stk.cage.M3L6(
-                building_blocks={
-                    tetra_bb: (0, 1, 2),
-                    converging_bb: (3, 4, 5, 6),
-                    diverging_bb: (7, 8),
-                },
-                vertex_positions=None,
-            )
-        )
-        cage.write(structure_dir / f"{name}_unopt.mol")
-
-        try:
-            conformer = cgx.scram.optimise_cage(
-                molecule=cage,
-                name=name,
-                output_dir=calculation_dir,
-                forcefield=forcefield,
-                platform=None,
-                database_path=database_path,
-            )
-            if conformer is not None:
-                conformer.molecule.with_centroid((0, 0, 0)).write(
-                    str(structure_dir / f"{name}_optc.mol")
-                )
-
-            analyse_cage(
-                database_path=database_path,
-                name=name,
-                forcefield=forcefield,
-                num_building_blocks=9,
-            )
-
-        except OpenMMException:
-            pass
 
     make_plot(
         database_path=database_path,
         figure_dir=figure_dir,
         filename="scan_4.png",
     )
-    make_ac_plot(
+    make_singular_plot(
         database_path=database_path,
         figure_dir=figure_dir,
+        cname="bac-dde",
+        xoption="d_d_e",
+        xlbl="$d$-$d$-$e$  [$^\\circ$]",
         filename="scan_5.png",
     )
-    make_bac_plot(
+    make_singular_plot(
         database_path=database_path,
         figure_dir=figure_dir,
+        cname="bac-dde",
+        xoption="b_a_c",
+        xlbl="$b$-$a$-$c$  [$^\\circ$]",
         filename="scan_6.png",
     )
 
-
-def main() -> None:
-    """Run script."""
-    aa_vs_bac_scan()
-    dde_vs_bac_scan()
+    make_plot(
+        database_path=database_path,
+        figure_dir=figure_dir,
+        filename="scan_7.png",
+    )
+    make_singular_plot(
+        database_path=database_path,
+        figure_dir=figure_dir,
+        cname="dd-dde",
+        xoption="d_d",
+        xlbl=r"$d$-$d$  [$\mathrm{\AA}$]",
+        filename="scan_8.png",
+    )
+    make_singular_plot(
+        database_path=database_path,
+        figure_dir=figure_dir,
+        cname="dd-dde",
+        xoption="d_d_e",
+        xlbl="$d$-$d$-$e$  [$^\\circ$]",
+        filename="scan_9.png",
+    )
 
 
 if __name__ == "__main__":
