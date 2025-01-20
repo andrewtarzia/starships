@@ -197,9 +197,8 @@ def calculate_xtb_energy(  # noqa: PLR0913
     if output_file.exists():
         with output_file.open("r") as f:
             lines = f.readlines()
-        for line in lines:
-            energy = float(line.rstrip())
-            break
+        energy = float(lines[0].rstrip())
+
     else:
         logging.info("xtb energy calculation of %s", name)
         xtb = stko.XTBEnergy(
@@ -262,9 +261,9 @@ def main() -> None:  # noqa: PLR0915, C901, PLR0912
         "pd": stk.BuildingBlock(
             smiles="[Pd+2]",
             functional_groups=(
-                stk.SingleAtom(stk.Pd(0, charge=2)) for i in range(4)
+                stk.SingleAtom(stk.Pd(0, charge=2)) for _ in range(4)
             ),
-            position_matrix=np.array((0, 0, 0)),
+            position_matrix=np.array([[0, 0, 0]]),
         ),
     }
 
