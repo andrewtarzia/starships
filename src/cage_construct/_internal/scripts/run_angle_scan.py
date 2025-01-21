@@ -66,7 +66,7 @@ def analyse_cage(
     )
 
 
-def make_plot(
+def make_plot(  # noqa: PLR0915
     database_path: pathlib.Path,
     figure_dir: pathlib.Path,
     filename: str,
@@ -197,7 +197,7 @@ def make_plot(
     plt.close()
 
 
-def make_contour_plot(
+def make_contour_plot(  # noqa: PLR0915
     database_path: pathlib.Path,
     figure_dir: pathlib.Path,
     filename: str,
@@ -323,7 +323,7 @@ def make_contour_plot(
     plt.close()
 
 
-def make_singular_plot(
+def make_singular_plot(  # noqa: PLR0913
     database_path: pathlib.Path,
     figure_dir: pathlib.Path,
     filename: str,
@@ -371,7 +371,7 @@ def make_singular_plot(
     plt.close()
 
 
-def main() -> None:
+def main() -> None:  # noqa: PLR0915
     """Run script."""
     args = _parse_args()
     wd = pathlib.Path("/home/atarzia/workingspace/starships/")
