@@ -53,17 +53,17 @@ def analyse_cage(
     """Analyse a toy model cage."""
     database = cgx.utilities.AtomliteDatabase(database_path)
     properties = database.get_entry(key=name).properties
-    if "topology_code_vmap" not in properties:
-        database.add_properties(
-            key=name,
-            property_dict={
-                "forcefield_dict": forcefield.get_forcefield_dictionary(),  # pyright: ignore[]
-                "energy_per_bb": cgx.utilities.get_energy_per_bb(
-                    energy_decomposition=properties["energy_decomposition"],
-                    number_building_blocks=num_building_blocks,
-                ),
-            },
-        )
+
+    database.add_properties(
+        key=name,
+        property_dict={
+            "forcefield_dict": forcefield.get_forcefield_dictionary(),  # pyright: ignore[]
+            "energy_per_bb": cgx.utilities.get_energy_per_bb(
+                energy_decomposition=properties["energy_decomposition"],
+                number_building_blocks=num_building_blocks,
+            ),
+        },
+    )
 
 
 def make_plot(
@@ -415,6 +415,7 @@ def main() -> None:
                 "la": {"dd": 7.0, "de": 1.5, "dde": 170, "eg": 1.4, "gb": 1.4},
                 "st5": {"ba": 2.8, "aa": 3.9, "bac": 120, "bacab": 180},
             }
+
             for (i, xp), (j, yp) in it.product(
                 enumerate(pair_range_dict["xr"]),
                 enumerate(pair_range_dict["yr"]),
@@ -513,6 +514,79 @@ def main() -> None:
 
                 except OpenMMException:
                     pass
+
+            # Rescan over the surface for improved energies.
+            for (i, xp), (j, yp) in it.product(
+                enumerate(pair_range_dict["xr"]),
+                enumerate(pair_range_dict["yr"]),
+            ):
+                ypname, xpname = cname.split("-")
+                ligand_measures[pair_range_dict["xl"]][xpname] = xp
+                ligand_measures[pair_range_dict["yl"]][ypname] = yp
+
+                forcefield = precursors_to_forcefield(
+                    pair=f"{pair}",
+                    diverging=diverging,
+                    converging=converging,
+                    conv_meas=ligand_measures[converging_name],
+                    dive_meas=ligand_measures[diverging_name],
+                )
+
+                name = f"scan_{cname}_{i}-{j}"
+                logging.info("rescanning %s", name)
+
+                current_cage = stk.BuildingBlock.init_from_file(
+                    structure_dir / f"{name}_optc.mol"
+                )
+
+                potential_names = []
+
+                x_indices_of_interest = [
+                    pair_range_dict["xr"].index(x)
+                    for _, x in sorted(
+                        zip(
+                            [abs(i - xp) for i in pair_range_dict["xr"]],
+                            pair_range_dict["xr"],
+                            strict=False,
+                        )
+                    )
+                ][:3]
+                y_indices_of_interest = [
+                    pair_range_dict["yr"].index(x)
+                    for _, x in sorted(
+                        zip(
+                            [abs(i - yp) for i in pair_range_dict["yr"]],
+                            pair_range_dict["yr"],
+                            strict=False,
+                        )
+                    )
+                ][:3]
+
+                for cstr, xidx, yidx in it.product(
+                    combos, x_indices_of_interest, y_indices_of_interest
+                ):
+                    potential_names.append(f"scan_{cstr}_{xidx}-{yidx}")
+
+                conformer = cgx.scram.optimise_from_files(
+                    molecule=current_cage,
+                    name=name,
+                    output_dir=calculation_dir,
+                    forcefield=forcefield,
+                    platform=None,
+                    database_path=database_path,
+                    potential_names=potential_names,
+                )
+
+                conformer.molecule.with_centroid(np.array((0, 0, 0))).write(
+                    str(structure_dir / f"{name}_optc.mol")
+                )
+
+                analyse_cage(
+                    database_path=database_path,
+                    name=name,
+                    forcefield=forcefield,
+                    num_building_blocks=9,
+                )
 
     make_plot(
         database_path=database_path,
