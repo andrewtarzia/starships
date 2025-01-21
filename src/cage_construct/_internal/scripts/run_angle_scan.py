@@ -9,6 +9,7 @@ import cgexplore as cgx
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+import polars as pl
 import stk
 from openmm import OpenMMException
 from rdkit import RDLogger
@@ -56,7 +57,7 @@ def analyse_cage(
         database.add_properties(
             key=name,
             property_dict={
-                "forcefield_dict": forcefield.get_forcefield_dictionary(),
+                "forcefield_dict": forcefield.get_forcefield_dictionary(),  # pyright: ignore[]
                 "energy_per_bb": cgx.utilities.get_energy_per_bb(
                     energy_decomposition=properties["energy_decomposition"],
                     number_building_blocks=num_building_blocks,
@@ -124,7 +125,7 @@ def make_plot(
 
     vmin = 0
     vmax = 0.6
-    min_energy = float("inf")
+
     for entry in cgx.utilities.AtomliteDatabase(database_path).get_entries():
         if xoption2 is None:
             cname = f"{yoption.replace('_', '')}-{xoption.replace('_', '')}"
@@ -135,7 +136,7 @@ def make_plot(
         x = float(entry.properties["forcefield_dict"]["v_dict"][xoption])
         y = float(entry.properties["forcefield_dict"]["v_dict"][yoption])
         c = float(entry.properties["energy_per_bb"])
-        min_energy = min(c, min_energy)
+
         if x in xtarget and y in ytarget:
             logging.info(
                 "target (x:%s, y:%s) E=%s",
@@ -181,6 +182,132 @@ def make_plot(
     )
     cbar.ax.tick_params(labelsize=16)
     cbar.set_label(eb_str(), fontsize=16)
+
+    fig.tight_layout()
+    fig.savefig(
+        figure_dir / filename,
+        dpi=360,
+        bbox_inches="tight",
+    )
+    fig.savefig(
+        figure_dir / filename.replace(".png", ".pdf"),
+        dpi=360,
+        bbox_inches="tight",
+    )
+    plt.close()
+
+
+def make_contour_plot(
+    database_path: pathlib.Path,
+    figure_dir: pathlib.Path,
+    filename: str,
+) -> None:
+    """Visualise energies."""
+    fig, ax = plt.subplots(figsize=(8, 5))
+    cg_scale = 2
+
+    if filename in ("scan_1.png", "scan_1c.png"):
+        xoption = "a_c"
+        xoption2 = "a_a"
+        yoption = "b_a_c"
+        red_x = [
+            3.4 / (2 * cg_scale),
+            5.0 / (2 * cg_scale),
+            3.9 / (2 * cg_scale),
+        ]
+        red_y = [90, 110, 120]
+        xlbl = r"$a$-$c$  [$\mathrm{\AA}$]"
+        ylbl = "$b$-$a$-$c$  [$^\\circ$]"
+        ax.axhline(y=90, c="k", ls="--", alpha=0.5)
+        ax.axhline(y=120, c="k", ls="--", alpha=0.5)
+        ax.axvline(x=3.4 / (2 * cg_scale), c="k", ls="--", alpha=0.5)
+        ax.axvline(x=5.0 / (2 * cg_scale), c="k", ls="--", alpha=0.5)
+
+    elif filename in ("scan_4.png", "scan_4c.png"):
+        xoption = "d_d_e"
+        xoption2 = None
+        yoption = "b_a_c"
+        red_x = [170] * 3
+        red_y = [90, 110, 120]
+        xlbl = "$d$-$d$-$e$  [$^\\circ$]"
+        ylbl = "$b$-$a$-$c$  [$^\\circ$]"
+        ax.axhline(y=90, c="k", ls="--", alpha=0.5)
+        ax.axhline(y=120, c="k", ls="--", alpha=0.5)
+        ax.axvline(x=170, c="k", ls="--", alpha=0.5)
+
+    elif filename in ("scan_7.png", "scan_7c.png"):
+        xoption = "d_d_e"
+        xoption2 = None
+        yoption = "d_d"
+        red_x = [170]
+        red_y = [7 / cg_scale]
+        xlbl = "$d$-$d$-$e$  [$^\\circ$]"
+        ylbl = r"$d$-$d$  [$\mathrm{\AA}$]"
+        ax.axhline(y=7 / cg_scale, c="k", ls="--", alpha=0.5)
+        ax.axvline(x=170, c="k", ls="--", alpha=0.5)
+
+    else:
+        raise NotImplementedError
+
+    if xoption2 is None:
+        cname = f"{yoption.replace('_', '')}-{xoption.replace('_', '')}"
+    else:
+        cname = f"{yoption.replace('_', '')}-{xoption2.replace('_', '')}"
+
+    frame = cgx.utilities.AtomliteDatabase(database_path).get_property_df(
+        properties=[
+            "$.energy_per_bb",
+            f"$.forcefield_dict.v_dict.{xoption}",
+            f"$.forcefield_dict.v_dict.{yoption}",
+        ]
+    )
+    frame = frame.filter(pl.col("key").str.contains(cname))
+
+    # Plot the underlying grid.
+    ax.scatter(
+        frame[f"$.forcefield_dict.v_dict.{xoption}"],
+        frame[f"$.forcefield_dict.v_dict.{yoption}"],
+        c="none",
+        alpha=0.1,
+        edgecolor="k",
+        s=50,
+        marker="s",
+        zorder=2,
+    )
+
+    xs = set(frame[f"$.forcefield_dict.v_dict.{xoption}"])
+    ys = set(frame[f"$.forcefield_dict.v_dict.{yoption}"])
+    frame = frame.sort(pl.col(f"$.forcefield_dict.v_dict.{xoption}")).sort(
+        pl.col(f"$.forcefield_dict.v_dict.{yoption}")
+    )
+    frame = frame.group_by(
+        f"$.forcefield_dict.v_dict.{xoption}", maintain_order=True
+    ).agg(pl.col("$.energy_per_bb"))
+
+    zs = np.array(frame["$.energy_per_bb"].to_list()).T
+    xs, ys = np.meshgrid(sorted(set(xs)), sorted(set(ys)))
+
+    cs = ax.contourf(
+        xs, ys, zs, levels=[0.0, 0.1, 0.3, 0.6, 1.0], cmap="Blues_r"
+    )
+
+    ax.scatter(
+        red_x,
+        red_y,
+        c="tab:red",
+        alpha=1.0,
+        edgecolor="k",
+        s=80,
+        marker="X",
+    )
+
+    ax.tick_params(axis="both", which="major", labelsize=16)
+    ax.set_xlabel(xlbl, fontsize=16)
+    ax.set_ylabel(ylbl, fontsize=16)
+
+    cbar = fig.colorbar(cs)
+    cbar.ax.tick_params(labelsize=16)
+    cbar.ax.set_ylabel(eb_str(), fontsize=16)
 
     fig.tight_layout()
     fig.savefig(
@@ -344,23 +471,23 @@ def main() -> None:
                         vertex_positions=None,
                     )
                 )
-                cage.write(structure_dir / f"{name}_unopt.mol")
+                cage.write(str(structure_dir / f"{name}_unopt.mol"))
 
                 si, sj = name.split("_")[2].split("-")
                 potential_names = []
-                potential_names.extend(
-                    [
-                        f"scan_{cname}_{int(si) - 2}-{int(sj) - 2}",
-                        f"scan_{cname}_{int(si) - 1}-{int(sj) - 2}",
-                        f"scan_{cname}_{int(si)}-{int(sj) - 2}",
-                        f"scan_{cname}_{int(si) - 2}-{int(sj) - 1}",
-                        f"scan_{cname}_{int(si) - 1}-{int(sj) - 1}",
-                        f"scan_{cname}_{int(si)}-{int(sj) - 1}",
-                        f"scan_{cname}_{int(si) - 2}-{int(sj)}",
-                        f"scan_{cname}_{int(si) - 1}-{int(sj)}",
-                    ]
-                    for cname in combos
-                )
+                for cstr in combos:
+                    potential_names.extend(
+                        [
+                            f"scan_{cstr}_{int(si) - 2}-{int(sj) - 2}",
+                            f"scan_{cstr}_{int(si) - 1}-{int(sj) - 2}",
+                            f"scan_{cstr}_{int(si)}-{int(sj) - 2}",
+                            f"scan_{cstr}_{int(si) - 2}-{int(sj) - 1}",
+                            f"scan_{cstr}_{int(si) - 1}-{int(sj) - 1}",
+                            f"scan_{cstr}_{int(si)}-{int(sj) - 1}",
+                            f"scan_{cstr}_{int(si) - 2}-{int(sj)}",
+                            f"scan_{cstr}_{int(si) - 1}-{int(sj)}",
+                        ]
+                    )
 
                 try:
                     conformer = cgx.scram.optimise_cage(
@@ -392,6 +519,11 @@ def main() -> None:
         figure_dir=figure_dir,
         filename="scan_1.png",
     )
+    make_contour_plot(
+        database_path=database_path,
+        figure_dir=figure_dir,
+        filename="scan_1c.png",
+    )
     make_singular_plot(
         database_path=database_path,
         figure_dir=figure_dir,
@@ -414,6 +546,11 @@ def main() -> None:
         figure_dir=figure_dir,
         filename="scan_4.png",
     )
+    make_contour_plot(
+        database_path=database_path,
+        figure_dir=figure_dir,
+        filename="scan_4c.png",
+    )
     make_singular_plot(
         database_path=database_path,
         figure_dir=figure_dir,
@@ -435,6 +572,11 @@ def main() -> None:
         database_path=database_path,
         figure_dir=figure_dir,
         filename="scan_7.png",
+    )
+    make_contour_plot(
+        database_path=database_path,
+        figure_dir=figure_dir,
+        filename="scan_7c.png",
     )
     make_singular_plot(
         database_path=database_path,
