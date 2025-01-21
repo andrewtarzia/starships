@@ -119,6 +119,8 @@ def main() -> None:
             molecule = stk.BuildingBlock(ligand_dict["smiles"])  # type: ignore[index]
         elif "input" in ligand_dict:  # type: ignore[operator]
             molecule = stk.BuildingBlock.init_from_file(ligand_dict["input"])  # type: ignore[index]
+        else:
+            raise NotImplementedError
 
         molecule.write(ligand_dir / f"{ligand}_unopt.mol")
 
