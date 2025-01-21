@@ -83,7 +83,7 @@ def get_from_0_coordinares(
     """Translate to coordinates with a previous structure with less atoms."""
     previous = (
         structure_dir
-        / f"ts_{tstr.replace('s','').replace('i','')}_0_0_10_optc.mol"
+        / f"ts_{tstr.replace('s', '').replace('i', '')}_0_0_10_optc.mol"
     )
 
     if not previous.exists():
@@ -736,6 +736,8 @@ def main() -> None:  # noqa: PLR0915, C901, PLR0912
                             )
                         )
                         num_bbs = 12
+                    else:
+                        raise NotImplementedError
 
                     if scale == "spec":
                         continue
@@ -765,6 +767,8 @@ def main() -> None:  # noqa: PLR0915, C901, PLR0912
 
                     cage.write(structure_dir / f"{name}_unopt.mol")
 
+                    potential_names = []
+                    raise NotImplementedError
                     conformer = cgx.scram.optimise_cage(
                         molecule=cage,
                         name=name,
@@ -772,6 +776,7 @@ def main() -> None:  # noqa: PLR0915, C901, PLR0912
                         forcefield=forcefield,
                         platform=None,
                         database_path=database_path,
+                        potential_names=potential_names,
                     )
                     if conformer is not None:
                         conformer.molecule.with_centroid((0, 0, 0)).write(
