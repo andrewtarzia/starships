@@ -184,7 +184,7 @@ class Scrambler:
         """Get num. mashes algorithm."""
         return self._num_mashes
 
-    def get_constructed_molecules(  # noqa: PLR0912
+    def get_constructed_molecules(  # noqa: C901, PLR0912, PLR0915
         self,
     ) -> abc.Generator[cgx.scram.Constructed]:
         """Get constructed molecules from iteration."""
