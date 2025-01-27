@@ -10,6 +10,8 @@ import numpy as np
 import stk
 import stko
 
+from .utilities import name_parser
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(message)s",
@@ -83,6 +85,57 @@ def plot_xy(
     plt.close()
 
 
+def plot_distance_angle(
+    ensembles: dict[str, dict[str, dict]],  # type: ignore[type-arg]
+    figure_dir: pathlib.Path,
+) -> None:
+    """Make an xy plot of properties."""
+    fig, ax = plt.subplots(figsize=(8, 5))
+
+    for ligand, ensemble in ensembles.items():
+        if ligand not in ("c1", "st5"):
+            continue
+        min_energy = min([ensemble[i]["energy"] for i in ensemble])
+
+        is_kept = [
+            i
+            for i in ensemble
+            if (ensemble[i]["energy"] - min_energy) * 2625.5 < 20  # noqa: PLR2004
+        ]
+
+        xs = [ensemble[i]["binder_angles"][0] for i in is_kept] + [
+            ensemble[i]["binder_angles"][0] for i in is_kept
+        ]
+        ys = [ensemble[i]["binder_distance"] for i in is_kept] + [
+            ensemble[i]["binder_distance"] for i in is_kept
+        ]
+
+        ax.scatter(
+            xs,
+            ys,
+            c="tab:blue" if ligand == "st5" else "tab:orange",
+            marker="o" if ligand == "st5" else "s",
+            edgecolor="k",
+            s=40,
+            label=name_parser(ligand),
+        )
+
+    ax.tick_params(axis="both", which="major", labelsize=16)
+    ax.set_xlabel("binder angle [deg]", fontsize=16)
+    ax.set_ylabel("N-N distance [AA]", fontsize=16)
+    ax.set_xlim(90, 180)
+    ax.set_ylim(0, 15)
+    ax.legend(fontsize=16)
+
+    fig.tight_layout()
+    fig.savefig(
+        figure_dir / "dist_vs_angles_1.png",
+        dpi=360,
+        bbox_inches="tight",
+    )
+    plt.close()
+
+
 def main() -> None:
     """Run script."""
     wd = pathlib.Path("/home/atarzia/workingspace/starships/")
@@ -113,6 +166,7 @@ def main() -> None:
         },
     }
 
+    ensembles = {}
     for ligand, ligand_dict in ligands.items():
         logging.info("doing %s", ligand)
         if "smiles" in ligand_dict:  # type: ignore[operator]
@@ -135,7 +189,14 @@ def main() -> None:
             crest_path=crest_path,
             xtb_path=xtb_path,
         )
+        ensembles[ligand] = ensemble
 
+    plot_distance_angle(
+        ensembles=ensembles,
+        figure_dir=figure_dir,
+    )
+
+    for ligand, ensemble in ensembles.items():
         min_energy = min([ensemble[i]["energy"] for i in ensemble])
 
         # Plot.
