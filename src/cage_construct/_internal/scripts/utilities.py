@@ -1,5 +1,6 @@
 """Utilities module."""
 
+import itertools
 import logging
 from collections import abc
 from copy import deepcopy
@@ -12,6 +13,75 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(message)s",
 )
+
+
+def simple_beeswarm2(
+    y: np.ndarray | list,
+    nbins: int | None = None,
+    width: float = 1.0,
+) -> np.ndarray:
+    """Returns beeswarm for y."""
+    # Convert y to a numpy array to ensure it is compatible with numpy
+    # functions
+    y = np.asarray(y)
+
+    # If nbins is not provided, calculate a suitable number of bins based on
+    # data length
+    if nbins is None:
+        nbins = np.ceil(len(y) / 6).astype(int)
+
+    # Get the histogram of y and the corresponding bin edges
+    nn, ybins = np.histogram(y, bins=nbins)
+
+    # Find the maximum count in any bin to be used in calculating the x
+    # positions
+    nmax = nn.max()
+
+    # Create an array of zeros with the same length as y, to store x-
+    # coordinates
+    x = np.zeros(len(y))
+
+    # Divide indices of y-values into corresponding bins
+    ibs = []
+    for ymin, ymax in itertools.pairwise(ybins):
+        # Find the indices where y falls within the current bin
+        i = np.nonzero((y > ymin) * (y <= ymax))[0]
+        ibs.append(i)
+
+    # Assign x-coordinates to the points in each bin
+    dx = width / (nmax // 2)
+
+    for i in ibs:
+        yy = y[i]
+        if len(i) > 1:
+            # Determine the starting index (j) based on the number of elements
+            # in the bin
+            j = len(i) % 2
+
+            # Sort the indices based on their corresponding y-values
+            i = i[np.argsort(yy)]  # noqa: PLW2901
+
+            # Separate the indices into two halves (a and b) for arranging the
+            # spoints
+            a = i[j::2]
+            b = i[j + 1 :: 2]
+
+            # Assign x-coordinates to points in each half of the bin
+            x[a] = (0.5 + j / 3 + np.arange(len(b))) * dx
+            x[b] = (0.5 + j / 3 + np.arange(len(b))) * -dx
+
+    return x
+
+
+def name_parser(name: str) -> str:
+    """Convert computational names to paper names."""
+    dictionary = {
+        "st5": "L1",
+        "c1": "L1b",
+        "la": "L2",
+        "las": "L7",
+    }
+    return dictionary[name]
 
 
 class Scrambler:

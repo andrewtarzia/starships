@@ -7,7 +7,6 @@ import pathlib
 import cgexplore as cgx
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import numpy as np
 import stko
 from openmm import OpenMMException
 from rdkit import RDLogger
@@ -22,7 +21,9 @@ from .utilities import (
     eb_str,
     ebead_c,
     isomer_energy,
+    name_parser,
     precursors_to_forcefield,
+    simple_beeswarm2,
     tetra_bead,
 )
 
@@ -153,7 +154,6 @@ def make_plot(
         bbox_inches="tight",
     )
     plt.close()
-    raise SystemExit(filename)
 
 
 def make_summary_plot(
@@ -251,43 +251,56 @@ def make_summary_plot(
         bbox_inches="tight",
     )
     plt.close()
-    raise SystemExit(filename)
 
 
-def make_summary_plot2(
+def make_summary_plot2(  # noqa: C901
     database_path: pathlib.Path,
     figure_dir: pathlib.Path,
     filename: str,
 ) -> None:
     """Visualise energies."""
-    fig, ax = plt.subplots(figsize=(5, 5))
+    st5 = name_parser("st5")
+    c1 = name_parser("c1")
+    if "main" in filename:
+        fig, ax = plt.subplots(figsize=(8, 3))
+        systems = {
+            ("la_st5", "1"): {"name": "s-1", "data": []},
+            ("la_st5", "2"): {"name": "s-2", "data": []},
+            ("la_st5", "4"): {"name": "s-4", "data": []},
+            ("la_st52", "1"): {"name": "l-1", "data": []},
+            ("la_st52", "2"): {"name": "l-2", "data": []},
+            ("la_st52", "4"): {"name": "l-4", "data": []},
+            ("la_st5_11", "1"): {"name": "s,1:1-1", "data": []},
+            ("la_st5_11", "2"): {"name": "s,1:1-2", "data": []},
+            ("la_st5_11", "3"): {"name": "s,1:1-3", "data": []},
+        }
+        ax.axvline(x=2 + 0.5, c="gray")
+        ax.axvline(x=5 + 0.5, c="gray")
 
-    systems = {
-        ("la_st5", "1"): {"name": "st5-s-1", "data": []},
-        ("la_st5", "2"): {"name": "st5-s-2", "data": []},
-        ("la_st5", "4"): {"name": "st5-s-4", "data": []},
-        ("la_st52", "1"): {"name": "st5-l-1", "data": []},
-        ("la_st52", "2"): {"name": "st5-l-2", "data": []},
-        ("la_st52", "4"): {"name": "st5-l-4", "data": []},
-        ("la_c1", "1"): {"name": "st1-1", "data": []},
-        ("la_c1", "2"): {"name": "st1-2", "data": []},
-        ("la_c1", "4"): {"name": "st1-4", "data": []},
-        # ("la_c13", "1"): {"name": "st1-3-1", "data": []},
-        # ("la_c13", "2"): {"name": "st1-3-2", "data": []},
-        # ("la_c13", "4"): {"name": "st1-3-4", "data": []},
-        # ("la_c14", "1"): {"name": "st1-4-1", "data": []},
-        # ("la_c14", "2"): {"name": "st1-4-2", "data": []},
-        # ("la_c14", "4"): {"name": "st1-4-4", "data": []},
-        # ("la_c15", "1"): {"name": "st1-5-1", "data": []},
-        # ("la_c15", "2"): {"name": "st1-5-2", "data": []},
-        # ("la_c15", "4"): {"name": "st1-5-4", "data": []},
-        ("la_st5_11", "1"): {"name": "st5-s,1:1-1", "data": []},
-        ("la_st5_11", "2"): {"name": "st5-s,1:1-2", "data": []},
-        ("la_st5_11", "3"): {"name": "st5-s,1:1-3", "data": []},
-        ("la_st52_11", "1"): {"name": "st5-l,1:1-1", "data": []},
-        ("la_st52_11", "2"): {"name": "st5-l,1:1-2", "data": []},
-        ("la_st52_11", "3"): {"name": "st5-l,1:1-3", "data": []},
-    }
+    elif "si" in filename:
+        fig, ax = plt.subplots(figsize=(8, 5))
+        systems = {
+            ("la_st5", "1"): {"name": f"{st5}-s-1", "data": []},
+            ("la_st5", "2"): {"name": f"{st5}-s-2", "data": []},
+            ("la_st5", "4"): {"name": f"{st5}-s-4", "data": []},
+            ("la_st52", "1"): {"name": f"{st5}-l-1", "data": []},
+            ("la_st52", "2"): {"name": f"{st5}-l-2", "data": []},
+            ("la_st52", "4"): {"name": f"{st5}-l-4", "data": []},
+            ("la_c1", "1"): {"name": f"{c1}-1", "data": []},
+            ("la_c1", "2"): {"name": f"{c1}-2", "data": []},
+            ("la_c1", "4"): {"name": f"{c1}-4", "data": []},
+            ("la_st5_11", "1"): {"name": f"{st5}-s,1:1-1", "data": []},
+            ("la_st5_11", "2"): {"name": f"{st5}-s,1:1-2", "data": []},
+            ("la_st5_11", "3"): {"name": f"{st5}-s,1:1-3", "data": []},
+            ("la_st52_11", "1"): {"name": f"{st5}-l,1:1-1", "data": []},
+            ("la_st52_11", "2"): {"name": f"{st5}-l,1:1-2", "data": []},
+            ("la_st52_11", "3"): {"name": f"{st5}-l,1:1-3", "data": []},
+        }
+        ax.axvline(x=2 + 0.5, c="gray")
+        ax.axvline(x=5 + 0.5, c="gray")
+        ax.axvline(x=8 + 0.5, c="gray")
+        ax.axvline(x=11 + 0.5, c="gray")
+
     count_423 = 0
     count_111 = 0
     for entry in cgx.utilities.AtomliteDatabase(database_path).get_entries():
@@ -305,13 +318,17 @@ def make_summary_plot2(
 
         systems[(pair, multi)]["data"].append(energy)  # type: ignore[attr-defined]
 
-        if "_11" in pair:
+        if pair == "la_st5_11":
             count_111 += 1
-        else:
+        elif pair == "la_st5":
             count_423 += 1
 
-    logging.info("structures built, 4:2:3 %s, 1:1:1 %s", count_423, count_111)
-    rng = np.random.default_rng(seed=2)
+    if "si" in filename:
+        logging.info(
+            "structures built for la_st5, 4:2:3 %s, 1:1:1 %s",
+            count_423,
+            count_111,
+        )
 
     for i, (pair, multi) in enumerate(systems):
         if len(systems[(pair, multi)]["data"]) == 0:
@@ -319,13 +336,10 @@ def make_summary_plot2(
         min_energy = min(systems[(pair, multi)]["data"])
 
         ax.scatter(
-            [
-                i + (2 * rng.random() - 1) * 0.3
-                for j in range(len(systems[(pair, multi)]["data"]))
-            ],
+            simple_beeswarm2(systems[(pair, multi)]["data"], width=0.3) + i,
             systems[(pair, multi)]["data"],
             c="tab:blue",
-            alpha=0.1,
+            alpha=0.2,
             edgecolor="none",
             s=30,
             marker="o",
@@ -334,7 +348,7 @@ def make_summary_plot2(
         ax.scatter(
             i,
             min_energy,
-            c="tab:orange",
+            c="none",
             alpha=1.0,
             edgecolor="k",
             s=80,
@@ -342,19 +356,13 @@ def make_summary_plot2(
             zorder=2,
         )
 
-    ax.axvline(x=2 + 0.5, c="gray")
-    ax.axvline(x=5 + 0.5, c="gray")
-    ax.axvline(x=8 + 0.5, c="gray")
-    ax.axvline(x=11 + 0.5, c="gray")
-    ax.axvline(x=14 + 0.5, c="gray")
-
     ax.tick_params(axis="both", which="major", labelsize=16)
     ax.set_xticks(list(range(len(systems))))
-    ax.set_xticklabels([systems[i]["name"] for i in systems], rotation=90)  # type: ignore[misc]
+    rot = 0 if "main" in filename else 90
+    ax.set_xticklabels([systems[i]["name"] for i in systems], rotation=rot)  # type: ignore[misc]
     ax.set_ylabel(eb_str(), fontsize=16)
     ax.set_yscale("log")
-    ax.set_ylim(0.1, None)
-    ax.axhline(y=isomer_energy(), c="k", ls="--")
+    ax.set_ylim(0.01, None)
 
     fig.tight_layout()
     fig.savefig(
@@ -368,7 +376,6 @@ def make_summary_plot2(
         bbox_inches="tight",
     )
     plt.close()
-    raise SystemExit(filename)
 
 
 def _parse_args() -> argparse.Namespace:
@@ -628,8 +635,14 @@ def main() -> None:  # noqa: PLR0915
     make_summary_plot2(
         database_path=database_path,
         figure_dir=figure_dir,
-        filename="rerun_4.png",
+        filename="rerun_4_main.png",
     )
+    make_summary_plot2(
+        database_path=database_path,
+        figure_dir=figure_dir,
+        filename="rerun_4_si.png",
+    )
+    raise SystemExit
     for pair in pairs:
         make_plot(
             database_path=database_path,
