@@ -768,6 +768,20 @@ def main() -> None:  # noqa: PLR0915, C901, PLR0912
                     cage.write(structure_dir / f"{name}_unopt.mol")
 
                     potential_names = []
+                    if "ts_" in name:
+                    _, tstr, si, sj, _at = name.split("_")
+                    raise NotImplementedError("fix this")
+                    potential_names = []
+                    for i in range(20):
+                    potential_names.extend(
+                    [
+                        f"ts_{tstr}_{int(si) - 1}_{int(sj) - 1}_{i}",
+                        f"ts_{tstr}_{int(si) - 1}_{int(sj)}_{i}",
+                        f"ts_{tstr}_{int(si)}_{int(sj) - 1}_{i}",
+                        f"ts_{tstr}_{int(si)}_{int(sj)}_{i}",
+                    ]
+                    )
+
                     raise NotImplementedError
                     conformer = cgx.scram.optimise_cage(
                         molecule=cage,

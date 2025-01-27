@@ -85,27 +85,34 @@ def make_plot(  # noqa: PLR0915
             3.9 / (2 * cg_scale),
         ]
         red_y = [90, 110, 120]
-        xlbl = r"$a$-$c$  [$\mathrm{\AA}$]"
-        ylbl = "$b$-$a$-$c$  [$^\\circ$]"
+        xlbl = r"$ac$  [$\mathrm{\AA}$]"
+        ylbl = "$bac$  [$^\\circ$]"
         ax.axhline(y=90, c="k", ls="--", alpha=0.5)
+        ax.axhline(y=110, c="k", ls="--", alpha=0.5)
         ax.axhline(y=120, c="k", ls="--", alpha=0.5)
         ax.axvline(x=3.4 / (2 * cg_scale), c="k", ls="--", alpha=0.5)
         ax.axvline(x=5.0 / (2 * cg_scale), c="k", ls="--", alpha=0.5)
-        xtarget = (3.4 / (2 * cg_scale), 5.0 / (2 * cg_scale))
-        ytarget = (90, 120)
+        xtarget = (
+            3.4 / (2 * cg_scale),
+            3.9 / (2 * cg_scale),
+            5.0 / (2 * cg_scale),
+        )
+        ytarget = (90, 110, 120)
+
     elif filename == "scan_4.png":
         xoption = "d_d_e"
         xoption2 = None
         yoption = "b_a_c"
         red_x = [170] * 3
         red_y = [90, 110, 120]
-        xlbl = "$d$-$d$-$e$  [$^\\circ$]"
-        ylbl = "$b$-$a$-$c$  [$^\\circ$]"
+        xlbl = "$dde$  [$^\\circ$]"
+        ylbl = "$bac$  [$^\\circ$]"
         ax.axhline(y=90, c="k", ls="--", alpha=0.5)
+        ax.axhline(y=110, c="k", ls="--", alpha=0.5)
         ax.axhline(y=120, c="k", ls="--", alpha=0.5)
         ax.axvline(x=170, c="k", ls="--", alpha=0.5)
         xtarget = (170,)
-        ytarget = (90, 120)
+        ytarget = (90, 110, 120)
 
     elif filename == "scan_7.png":
         xoption = "d_d_e"
@@ -113,8 +120,8 @@ def make_plot(  # noqa: PLR0915
         yoption = "d_d"
         red_x = [170]
         red_y = [7 / cg_scale]
-        xlbl = "$d$-$d$-$e$  [$^\\circ$]"
-        ylbl = r"$d$-$d$  [$\mathrm{\AA}$]"
+        xlbl = "$dde$  [$^\\circ$]"
+        ylbl = r"$dd$  [$\mathrm{\AA}$]"
         ax.axhline(y=7 / cg_scale, c="k", ls="--", alpha=0.5)
         ax.axvline(x=170, c="k", ls="--", alpha=0.5)
         xtarget = (170,)
@@ -203,7 +210,7 @@ def make_contour_plot(  # noqa: PLR0915
     filename: str,
 ) -> None:
     """Visualise energies."""
-    fig, ax = plt.subplots(figsize=(8, 5))
+    fig, ax = plt.subplots(figsize=(6, 3))
     cg_scale = 2
 
     if filename in ("scan_1.png", "scan_1c.png"):
@@ -216,9 +223,10 @@ def make_contour_plot(  # noqa: PLR0915
             3.9 / (2 * cg_scale),
         ]
         red_y = [90, 110, 120]
-        xlbl = r"$a$-$c$  [$\mathrm{\AA}$]"
-        ylbl = "$b$-$a$-$c$  [$^\\circ$]"
+        xlbl = r"$ac$  [$\mathrm{\AA}$]"
+        ylbl = "$bac$  [$^\\circ$]"
         ax.axhline(y=90, c="k", ls="--", alpha=0.5)
+        ax.axhline(y=110, c="k", ls="--", alpha=0.5)
         ax.axhline(y=120, c="k", ls="--", alpha=0.5)
         ax.axvline(x=3.4 / (2 * cg_scale), c="k", ls="--", alpha=0.5)
         ax.axvline(x=5.0 / (2 * cg_scale), c="k", ls="--", alpha=0.5)
@@ -229,9 +237,10 @@ def make_contour_plot(  # noqa: PLR0915
         yoption = "b_a_c"
         red_x = [170] * 3
         red_y = [90, 110, 120]
-        xlbl = "$d$-$d$-$e$  [$^\\circ$]"
-        ylbl = "$b$-$a$-$c$  [$^\\circ$]"
+        xlbl = "$dde$  [$^\\circ$]"
+        ylbl = "$bac$  [$^\\circ$]"
         ax.axhline(y=90, c="k", ls="--", alpha=0.5)
+        ax.axhline(y=110, c="k", ls="--", alpha=0.5)
         ax.axhline(y=120, c="k", ls="--", alpha=0.5)
         ax.axvline(x=170, c="k", ls="--", alpha=0.5)
 
@@ -241,8 +250,8 @@ def make_contour_plot(  # noqa: PLR0915
         yoption = "d_d"
         red_x = [170]
         red_y = [7 / cg_scale]
-        xlbl = "$d$-$d$-$e$  [$^\\circ$]"
-        ylbl = r"$d$-$d$  [$\mathrm{\AA}$]"
+        xlbl = "$dde$  [$^\\circ$]"
+        ylbl = r"$dd$  [$\mathrm{\AA}$]"
         ax.axhline(y=7 / cg_scale, c="k", ls="--", alpha=0.5)
         ax.axvline(x=170, c="k", ls="--", alpha=0.5)
 
@@ -288,7 +297,12 @@ def make_contour_plot(  # noqa: PLR0915
     xs, ys = np.meshgrid(sorted(set(xs)), sorted(set(ys)))
 
     cs = ax.contourf(
-        xs, ys, zs, levels=[0.0, 0.1, 0.3, 0.6, 1.0], cmap="Blues_r"
+        xs,
+        ys,
+        zs,
+        levels=[0.0, 0.1, 0.3, 0.6, 1.0],
+        cmap="Blues_r",
+        alpha=0.8,
     )
 
     ax.scatter(
@@ -369,6 +383,26 @@ def make_singular_plot(  # noqa: PLR0913
         bbox_inches="tight",
     )
     plt.close()
+
+
+def names_to_viz(
+    database_path: pathlib.Path,
+    cname: str,
+) -> None:
+    """Visualise energies."""
+    xoption = "d_d_e"
+    yoption = "b_a_c"
+
+    pairs = ((120, 145), (130, 100), (145, 125), (160, 125), (170, 120))
+
+    for entry in cgx.utilities.AtomliteDatabase(database_path).get_entries():
+        if cname not in entry.key:
+            continue
+        x = float(entry.properties["forcefield_dict"]["v_dict"][xoption])
+        y = float(entry.properties["forcefield_dict"]["v_dict"][yoption])
+
+        if (x, y) in pairs:
+            logging.info("see: %s, with x: %s and y: %s", entry.key, x, y)
 
 
 def main() -> None:  # noqa: PLR0915
@@ -588,6 +622,7 @@ def main() -> None:  # noqa: PLR0915
                     num_building_blocks=9,
                 )
 
+    raise SystemExit("compute binding angle of output model and compare to something?")
     make_plot(
         database_path=database_path,
         figure_dir=figure_dir,
@@ -667,6 +702,11 @@ def main() -> None:  # noqa: PLR0915
         xoption="d_d_e",
         xlbl="$d$-$d$-$e$  [$^\\circ$]",
         filename="scan_9.png",
+    )
+
+    names_to_viz(
+        database_path=database_path,
+        cname="bac-dde",
     )
 
 
