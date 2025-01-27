@@ -1,1 +1,1 @@
-"""A template project."""
+"""Starhsip construction."""
