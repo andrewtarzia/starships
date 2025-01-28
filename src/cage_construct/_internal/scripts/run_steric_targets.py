@@ -460,7 +460,12 @@ def make_distinct_plot(
     """Visualise energies."""
     steric_dict = get_steric_measures(figure_dir=figure_dir / "sterimol")
 
-    fig, axs = plt.subplots(ncols=2, sharey=True, figsize=(16, 5))
+    fig, axs = plt.subplots(
+        ncols=2,
+        sharey=True,
+        sharex=True,
+        figsize=(16, 5),
+    )
 
     datas: dict[str, dict[str, list[float]]] = defaultdict(
         lambda: defaultdict(list)
@@ -483,19 +488,8 @@ def make_distinct_plot(
 
     for tstr, (col, lbl) in dmap.items():
         if tstr in ("3P6", "4P8", "4P82"):
-            for ax in axs:
-                ax.plot(
-                    list(datas[tstr]),
-                    [min(datas[tstr][i]) for i in datas[tstr]],
-                    alpha=1.0,
-                    marker="o",
-                    markerfacecolor=col,
-                    mec="k",
-                    markersize=10,
-                    ls=ls[tstr],
-                    c="k" if "s" in tstr else "w",
-                )
-        elif tstr in ("3P6s", "4P8s", "4P82s"):
+            continue
+        if tstr in ("3P6s", "4P8s", "4P82s"):
             ax = axs[0]
             ax.plot(
                 list(datas[tstr]),
