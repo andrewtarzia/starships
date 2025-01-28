@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 import stk
+import stko
 from openmm import OpenMMException
 from rdkit import RDLogger
 
@@ -53,6 +54,7 @@ def analyse_cage(
     """Analyse a toy model cage."""
     database = cgx.utilities.AtomliteDatabase(database_path)
     properties = database.get_entry(key=name).properties
+    final_molecule = database.get_molecule(name)
 
     database.add_properties(
         key=name,
@@ -62,6 +64,77 @@ def analyse_cage(
                 energy_decomposition=properties["energy_decomposition"],
                 number_building_blocks=num_building_blocks,
             ),
+        },
+    )
+
+    g_measure = cgx.analysis.GeomMeasure.from_forcefield(forcefield)
+    bond_data = g_measure.calculate_bonds(final_molecule)
+    bond_data = {str("_".join(i)): bond_data[i] for i in bond_data}
+    angle_data = g_measure.calculate_angles(final_molecule)
+    angle_data = {str("_".join(i)): angle_data[i] for i in angle_data}
+    dihedral_data = g_measure.calculate_torsions(
+        molecule=final_molecule,
+        absolute=True,
+    )
+    database.add_properties(
+        key=name,
+        property_dict={
+            "bond_data": bond_data,
+            "angle_data": angle_data,
+            "dihedral_data": dihedral_data,
+        },
+    )
+
+    ligands = stko.molecule_analysis.DecomposeMOC().decompose(
+        molecule=final_molecule,
+        metal_atom_nos=(46,),
+    )
+
+    # Get the bg angles.
+    c_binder_binder_angles = []
+    d_binder_binder_angles = []
+    for lig in ligands:
+        if lig.get_num_atoms() == 8:  # noqa: PLR2004
+            as_building_block = stk.BuildingBlock.init_from_molecule(
+                lig,
+                stk.SmartsFunctionalGroupFactory(
+                    smarts="[Pb]~[Ga]", bonders=(0,), deleters=(1,)
+                ),
+            )
+            converging = True
+        elif lig.get_num_atoms() == 5:  # noqa: PLR2004
+            as_building_block = stk.BuildingBlock.init_from_molecule(
+                lig,
+                stk.SmartsFunctionalGroupFactory(
+                    smarts="[Pb]~[Ba]", bonders=(0,), deleters=(1,)
+                ),
+            )
+            converging = False
+
+        if as_building_block.get_num_functional_groups() != 2:  # noqa: PLR2004
+            raise RuntimeError
+
+        as_building_block.write("t.mol")
+
+        vectors = [
+            as_building_block.get_centroid(atom_ids=fg.get_bonder_ids())
+            - as_building_block.get_centroid(atom_ids=fg.get_deleter_ids())
+            for fg in as_building_block.get_functional_groups()
+        ]
+        normed = [i / np.linalg.norm(i) for i in vectors]
+        angle = np.degrees(
+            stko.vector_angle(vector1=normed[0], vector2=normed[1])
+        )
+        if converging:
+            c_binder_binder_angles.append(angle)
+        else:
+            d_binder_binder_angles.append(angle)
+
+    database.add_properties(
+        key=name,
+        property_dict={
+            "converging_binder_binder_angles": c_binder_binder_angles,
+            "diverging_binder_binder_angles": d_binder_binder_angles,
         },
     )
 
@@ -190,6 +263,291 @@ def make_plot(  # noqa: PLR0915
     cbar.ax.tick_params(labelsize=16)
     cbar.set_label(eb_str(), fontsize=16)
 
+    fig.tight_layout()
+    fig.savefig(
+        figure_dir / filename,
+        dpi=360,
+        bbox_inches="tight",
+    )
+    fig.savefig(
+        figure_dir / filename.replace(".png", ".pdf"),
+        dpi=360,
+        bbox_inches="tight",
+    )
+    plt.close()
+
+
+def make_energy_plot(
+    database_path: pathlib.Path,
+    figure_dir: pathlib.Path,
+    filename: str,
+) -> None:
+    """Visualise energies."""
+    fig, axs = plt.subplots(
+        ncols=3, nrows=2, sharex=True, sharey=True, figsize=(16, 10)
+    )
+    combos = ("bac-aa", "bac-dde", "dd-dde")
+    row_plot = (
+        {
+            "ffx": "b_a_c",
+            "aay": "diverging_binder_binder_angles",
+            "xlim": (0, 120),
+            "ylim": (None, None),
+            "ylbl": eb_str(),
+            "xlbl": "observed diverging angle  [$^\\circ$]",
+            "obs_source": "bba",
+        },
+        {
+            "ffx": "d_d_e",
+            "aay": "converging_binder_binder_angles",
+            "xlim": (0, 120),
+            "ylim": (None, None),
+            "ylbl": eb_str(),
+            "xlbl": "observed converging angle  [$^\\circ$]",
+            "obs_source": "bba",
+        },
+    )
+    for axrow, rowd in zip(axs, row_plot, strict=True):
+        for combo, ax in zip(combos, axrow, strict=True):
+            xs = []
+            ys = []
+
+            for entry in cgx.utilities.AtomliteDatabase(
+                database_path
+            ).get_entries():
+                if combo != entry.key.split("_")[1]:
+                    continue
+
+                ys.append(float(entry.properties["energy_per_bb"]))
+                if rowd["obs_source"] == "ff":
+                    xs.append(entry.properties["angle_data"][rowd["aay"]])
+                elif rowd["obs_source"] == "bba":
+                    xs.append(np.mean(entry.properties[rowd["aay"]]))
+
+            ax.scatter(
+                xs,
+                ys,
+                c="tab:blue",
+                alpha=1.0,
+                edgecolor="k",
+                s=60,
+                zorder=2,
+            )
+
+            ax.tick_params(axis="both", which="major", labelsize=16)
+            ax.set_title(f"${combo}$", fontsize=16)
+            ax.set_xlabel(rowd["xlbl"], fontsize=16)
+            ax.set_ylabel(rowd["ylbl"], fontsize=16)
+            ax.set_xlim(rowd["xlim"])
+            ax.set_ylim(rowd["ylim"])
+
+    fig.tight_layout()
+    fig.savefig(
+        figure_dir / filename,
+        dpi=360,
+        bbox_inches="tight",
+    )
+    fig.savefig(
+        figure_dir / filename.replace(".png", ".pdf"),
+        dpi=360,
+        bbox_inches="tight",
+    )
+    plt.close()
+
+
+def make_geom_plot(  # noqa: C901
+    database_path: pathlib.Path,
+    figure_dir: pathlib.Path,
+    filename: str,
+) -> None:
+    """Visualise energies."""
+    fig, axs = plt.subplots(ncols=3, nrows=4, figsize=(16, 16))
+    combos = ("bac-aa", "bac-dde", "dd-dde")
+    row_plot = (
+        {
+            "ffx": "b_a_c",
+            "aay": "Pb_Ba_Ag",
+            "xlim": (90, 150),
+            "ylim": (90, 150),
+            "targets": [90, 110, 120],
+            "xlbl": "target $bac$  [$^\\circ$]",
+            "ylbl": "observed $bac$  [$^\\circ$]",
+            "obs_source": "ff",
+        },
+        {
+            "ffx": "d_d_e",
+            "aay": "Fe_Ni_Ni",
+            "xlim": (120, 175),
+            "ylim": (120, 175),
+            "targets": [170],
+            "xlbl": "target $dde$  [$^\\circ$]",
+            "ylbl": "observed $dde$  [$^\\circ$]",
+            "obs_source": "ff",
+        },
+        {
+            "ffx": "b_a_c",
+            "aay": "diverging_binder_binder_angles",
+            "xlim": (90, 150),
+            "ylim": (30, 100),
+            "targets": [90, 110, 120],
+            "xlbl": "target $bac$  [$^\\circ$]",
+            "ylbl": "observed diverging angle  [$^\\circ$]",
+            "obs_source": "bba",
+        },
+        {
+            "ffx": "d_d_e",
+            "aay": "converging_binder_binder_angles",
+            "xlim": (120, 175),
+            "ylim": (15, 60),
+            "targets": [170],
+            "xlbl": "target $dde$  [$^\\circ$]",
+            "ylbl": "observed converging angle  [$^\\circ$]",
+            "obs_source": "bba",
+        },
+    )
+    for axrow, rowd in zip(axs, row_plot, strict=True):
+        for combo, ax in zip(combos, axrow, strict=True):
+            xs = []
+            ys = []
+
+            for entry in cgx.utilities.AtomliteDatabase(
+                database_path
+            ).get_entries():
+                if combo != entry.key.split("_")[1]:
+                    continue
+
+                xs.append(
+                    float(
+                        entry.properties["forcefield_dict"]["v_dict"][
+                            rowd["ffx"]
+                        ]
+                    )
+                )
+                if rowd["obs_source"] == "ff":
+                    ys.append(entry.properties["angle_data"][rowd["aay"]])
+                elif rowd["obs_source"] == "bba":
+                    ys.append(entry.properties[rowd["aay"]])
+
+            comp_values = {i: [] for i in sorted(set(xs))}
+            for i, j in zip(xs, ys, strict=True):
+                comp_values[i].extend(j)
+
+            ax.scatter(
+                list(comp_values),
+                [np.mean(y) for y in comp_values.values()],
+                c="tab:blue",
+                alpha=1.0,
+                edgecolor="k",
+                s=60,
+                zorder=2,
+            )
+            ax.fill_between(
+                list(comp_values),
+                y1=[np.min(comp_values[i]) for i in comp_values],
+                y2=[np.max(comp_values[i]) for i in comp_values],
+                alpha=0.6,
+                color="tab:blue",
+                edgecolor=(0, 0, 0, 2.0),
+                lw=0,
+            )
+
+            ax.tick_params(axis="both", which="major", labelsize=16)
+            ax.set_title(f"${combo}$", fontsize=16)
+            ax.set_xlabel(rowd["xlbl"], fontsize=16)
+            ax.set_ylabel(rowd["ylbl"], fontsize=16)
+            ax.set_xlim(rowd["xlim"])
+            ax.set_ylim(rowd["ylim"])
+            if rowd["obs_source"] == "ff":
+                ax.plot(rowd["xlim"], rowd["ylim"], c="k", zorder=-1)
+                for t in rowd["targets"]:
+                    ax.axhline(t, c="k", ls="--", zorder=-2, alpha=0.4)
+
+            for t in rowd["targets"]:
+                ax.axvline(t, c="k", ls="--", zorder=-2, alpha=0.4)
+
+    fig.tight_layout()
+    fig.savefig(
+        figure_dir / filename,
+        dpi=360,
+        bbox_inches="tight",
+    )
+    fig.savefig(
+        figure_dir / filename.replace(".png", ".pdf"),
+        dpi=360,
+        bbox_inches="tight",
+    )
+    plt.close()
+
+
+def make_geom_grid(
+    database_path: pathlib.Path,
+    figure_dir: pathlib.Path,
+    filename: str,
+) -> None:
+    """Visualise energies."""
+    fig, axs = plt.subplots(ncols=3, nrows=1, figsize=(16, 5))
+    combos = ("bac-aa", "bac-dde", "dd-dde")
+
+    vmin = 0
+    vmax = 0.6
+    row_plot = (
+        {
+            "ffx": "diverging_binder_binder_angles",
+            "aay": "converging_binder_binder_angles",
+            "xlim": (0, 130),
+            "ylim": (15, 50),
+            "xlbl": "observed diverging angle  [$^\\circ$]",
+            "ylbl": "observed converging angle  [$^\\circ$]",
+        },
+    )
+    for axrow, rowd in zip([axs], row_plot, strict=True):
+        for combo, ax in zip(combos, axrow, strict=True):
+            for entry in cgx.utilities.AtomliteDatabase(
+                database_path
+            ).get_entries():
+                if combo != entry.key.split("_")[1]:
+                    continue
+
+                xs = entry.properties[rowd["ffx"]]
+                ys = entry.properties[rowd["aay"]]
+                c = float(entry.properties["energy_per_bb"])
+                if c < 0.1:  # noqa: PLR2004
+                    zorder = 2
+                elif c < 0.3:  # noqa: PLR2004
+                    zorder = 1
+                else:
+                    zorder = 0
+
+                ax.scatter(
+                    np.mean(xs),
+                    np.mean(ys),
+                    c=c,
+                    alpha=1.0,
+                    edgecolor="k",
+                    s=80,
+                    zorder=zorder,
+                    vmin=vmin,
+                    vmax=vmax,
+                    cmap="Blues_r",
+                )
+
+            ax.tick_params(axis="both", which="major", labelsize=16)
+            ax.set_title(f"${combo}$", fontsize=16)
+            ax.set_xlabel(rowd["xlbl"], fontsize=16)
+            ax.set_ylabel(rowd["ylbl"], fontsize=16)
+            ax.set_xlim(rowd["xlim"])
+            ax.set_ylim(rowd["ylim"])
+
+        cbar_ax = fig.add_axes([1.01, 0.2, 0.02, 0.7])  # type: ignore[call-overload]
+        cmap = mpl.cm.Blues_r  # type: ignore[attr-defined]
+        norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
+        cbar = fig.colorbar(
+            mpl.cm.ScalarMappable(norm=norm, cmap=cmap),
+            cax=cbar_ax,
+            orientation="vertical",
+        )
+        cbar.ax.tick_params(labelsize=16)
+        cbar.set_label(eb_str(), fontsize=16)
     fig.tight_layout()
     fig.savefig(
         figure_dir / filename,
@@ -622,7 +980,22 @@ def main() -> None:  # noqa: PLR0915
                     num_building_blocks=9,
                 )
 
-    raise SystemExit("compute binding angle of output model and compare to something?")
+    make_geom_grid(
+        database_path=database_path,
+        figure_dir=figure_dir,
+        filename="scan_12.png",
+    )
+    make_energy_plot(
+        database_path=database_path,
+        figure_dir=figure_dir,
+        filename="scan_11.png",
+    )
+    make_geom_plot(
+        database_path=database_path,
+        figure_dir=figure_dir,
+        filename="scan_10.png",
+    )
+
     make_plot(
         database_path=database_path,
         figure_dir=figure_dir,
@@ -703,7 +1076,6 @@ def main() -> None:  # noqa: PLR0915
         xlbl="$d$-$d$-$e$  [$^\\circ$]",
         filename="scan_9.png",
     )
-
     names_to_viz(
         database_path=database_path,
         cname="bac-dde",
