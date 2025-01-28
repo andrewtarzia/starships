@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "starships"
 maintainers = [{ name = "Andrew Tarzia", email = "andrew.tarzia@gmail.com" }]
 
-dependencies = ["stk", "stko", "cgexplore"]
+dependencies = ["stk", "stko", "cgexplore", "morfeus-ml"]
 requires-python = ">=3.11"
 dynamic = ["version"]
 readme = "README.rst"

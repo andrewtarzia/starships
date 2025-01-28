@@ -12,6 +12,7 @@ import networkx as nx
 import numpy as np
 import stk
 import stko
+from morfeus import Sterimol, read_xyz
 from rdkit import RDLogger
 
 from .utilities import (
@@ -23,7 +24,6 @@ from .utilities import (
     eb_str,
     ebead_c,
     inner_bead,
-    isomer_energy,
     precursors_to_forcefield,
     steric_bead,
     tetra_bead,
@@ -47,6 +47,18 @@ cmap = {
     "4P82si": "xkcd:chartreuse",
 }
 
+dmap = {
+    "3P6": ("xkcd:dark blue", "M$_3$L$_4$L'$_2$"),
+    "3P6s": ("xkcd:blue", "M$_3$L$_4$L'$_2$"),
+    "3P6si": ("xkcd:blue", "M$_3$L$_4$L'$_2$"),
+    "4P8": ("xkcd:dark orange", "M$_4$L$_4$L'$_4$-sq"),
+    "4P8s": ("xkcd:orange", "M$_4$L$_4$L'$_4$-sq"),
+    "4P8si": ("xkcd:orange", "M$_4$L$_4$L'$_4$-sq"),
+    "4P82": ("xkcd:forest green", "M$_4$L$_4$L'$_4$-td"),
+    "4P82s": ("xkcd:kelly green", "M$_4$L$_4$L'$_4$-td"),
+    "4P82si": ("xkcd:kelly green", "M$_4$L$_4$L'$_4$-td"),
+}
+
 
 ls = {
     "3P6": "-",
@@ -59,6 +71,46 @@ ls = {
     "4P82s": "-",
     "4P82si": "--",
 }
+
+final_conformer = 9
+
+
+def get_steric_measures(figure_dir: pathlib.Path) -> dict[str, Sterimol]:
+    """Calculate and add to plot."""
+    figure_dir.mkdir(exist_ok=True)
+
+    molecules = {
+        "L2": stko.UFF().optimize(stk.BuildingBlock("C1=CC(=O)C=C1")),
+        "L3": stko.UFF().optimize(stk.BuildingBlock("C1=COC=C1")),
+        "L4": stko.UFF().optimize(stk.BuildingBlock("CC1=COC=C1")),
+        "L5": stko.UFF().optimize(stk.BuildingBlock("CC1(C=CC=C1)C")),
+        "L6": stko.UFF().optimize(
+            stk.BuildingBlock("CCCCCCC1(C=CC=C1)CCCCCC")
+        ),
+        "L7": stko.UFF().optimize(stk.BuildingBlock("C1=CC=C(C=C1)C2=COC=C2")),
+    }
+    # Build molecules and then modify them
+    for molname, molecule in molecules.items():
+        molecule.write(figure_dir / f"{molname}.xyz")
+
+    results = {}
+    for molname in molecules:
+        man_file = figure_dir / f"{molname}_manual.xyz"
+        if not man_file.exists():
+            raise RuntimeError
+        elements, coordinates = read_xyz(man_file)
+        sterimol = Sterimol(elements, coordinates, 1, 2)
+
+        logging.info(
+            "%s: L: %s, B_1: %s, B_5: %s.",
+            molname,
+            round(sterimol.L_value, 2),
+            round(sterimol.B_1_value, 2),
+            round(sterimol.B_5_value, 2),
+        )
+
+        results[molname] = sterimol
+    return results
 
 
 def convert_coordinates(
@@ -82,12 +134,13 @@ def get_from_0_coordinares(
 ) -> stk.ConstructedMolecule:
     """Translate to coordinates with a previous structure with less atoms."""
     previous = (
-        structure_dir
-        / f"ts_{tstr.replace('s', '').replace('i', '')}_0_0_10_optc.mol"
+        structure_dir / f"ts_{tstr.replace('s', '').replace('i', '')}_0_0_"
+        f"{final_conformer}_optc.mol"
     )
 
     if not previous.exists():
-        raise RuntimeError
+        msg = f"{previous} does not exist"
+        raise RuntimeError(msg)
     previous_mol = stk.BuildingBlock.init_from_file(previous)
     new_position_matrix = list(previous_mol.get_position_matrix())
 
@@ -183,7 +236,7 @@ def geom_distributions(  # noqa: C901
 
     database = cgx.utilities.AtomliteDatabase(database_path)
     for entry in database.get_entries():
-        if entry.properties["attempt"] != "10":
+        if entry.properties["attempt"] != f"{final_conformer}":
             continue
         for label, gd_data in entry.properties["bond_data"].items():
             if label not in targets:
@@ -379,12 +432,112 @@ def make_plot(
         )
 
     ax.tick_params(axis="both", which="major", labelsize=16)
-    ax.set_xlabel(r"$\sigma_{s}$  [$\AA$]", fontsize=16)
+    ax.set_xlabel(r"$\sigma_{s}$  [$\mathrm{\AA}$]", fontsize=16)
     ax.set_ylabel(eb_str(), fontsize=16)
 
-    ax.axhspan(ymin=0, ymax=isomer_energy(), facecolor="k", alpha=0.2)
     ax.legend(ncol=3, fontsize=16)
     ax.set_yscale("log")
+
+    fig.tight_layout()
+    fig.savefig(
+        figure_dir / filename,
+        dpi=360,
+        bbox_inches="tight",
+    )
+    fig.savefig(
+        figure_dir / filename.replace(".png", ".pdf"),
+        dpi=360,
+        bbox_inches="tight",
+    )
+    plt.close()
+
+
+def make_distinct_plot(
+    database_path: pathlib.Path,
+    figure_dir: pathlib.Path,
+    filename: str,
+) -> None:
+    """Visualise energies."""
+    steric_dict = get_steric_measures(figure_dir=figure_dir / "sterimol")
+
+    fig, axs = plt.subplots(ncols=2, sharey=True, figsize=(16, 5))
+
+    datas: dict[str, dict[str, list[float]]] = defaultdict(
+        lambda: defaultdict(list)
+    )
+    for entry in cgx.utilities.AtomliteDatabase(database_path).get_entries():
+        tstr = entry.properties["tstr"]
+
+        if tstr[-1] == "s":
+            x = entry.properties["forcefield_dict"]["v_dict"]["i"]
+
+        elif tstr[-1] == "i":
+            x = entry.properties["forcefield_dict"]["v_dict"]["s"]
+
+        else:
+            x = -0.2
+
+        y = entry.properties["energy_per_bb"]
+
+        datas[tstr][x].append(y)
+
+    for tstr, (col, lbl) in dmap.items():
+        if tstr in ("3P6", "4P8", "4P82"):
+            for ax in axs:
+                ax.plot(
+                    list(datas[tstr]),
+                    [min(datas[tstr][i]) for i in datas[tstr]],
+                    alpha=1.0,
+                    marker="o",
+                    markerfacecolor=col,
+                    mec="k",
+                    markersize=10,
+                    ls=ls[tstr],
+                    c="k" if "s" in tstr else "w",
+                )
+        elif tstr in ("3P6s", "4P8s", "4P82s"):
+            ax = axs[0]
+            ax.plot(
+                list(datas[tstr]),
+                [min(datas[tstr][i]) for i in datas[tstr]],
+                alpha=1.0,
+                marker="o",
+                markerfacecolor=col,
+                mec="k",
+                markersize=10,
+                ls="-",
+                label=lbl,
+                c="k" if "s" in tstr else "w",
+            )
+            ax.set_title("w/o extender", fontsize=16)
+
+        elif tstr in ("3P6si", "4P8si", "4P82si"):
+            ax = axs[1]
+            ax.plot(
+                list(datas[tstr]),
+                [min(datas[tstr][i]) for i in datas[tstr]],
+                alpha=1.0,
+                marker="o",
+                markerfacecolor=col,
+                mec="k",
+                markersize=10,
+                ls="-",
+                label=lbl,
+                c="k" if "s" in tstr else "w",
+            )
+            ax.set_title("w extender", fontsize=16)
+
+    for ax in axs:
+        ax.tick_params(axis="both", which="major", labelsize=16)
+        ax.set_xlabel(r"$\sigma_{s}$  [$\mathrm{\AA}$]", fontsize=16)
+        ax.set_ylabel(eb_str(), fontsize=16)
+        ax.set_yscale("log")
+        cg_scale = 2
+        for mname, smol in steric_dict.items():
+            ax.axvline(x=smol.L_value / cg_scale, c="k")
+            ax.text(x=smol.L_value / cg_scale, y=0.1, s=mname, fontsize=12)
+
+    ax.legend(fontsize=16)
 
     fig.tight_layout()
     fig.savefig(
@@ -584,12 +737,12 @@ def main() -> None:  # noqa: PLR0915, C901, PLR0912
         for tstr, tfunction, _ in topologies:
             if tstr[-1] == "s":
                 e_range = [10]
-                s_range = [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0]
+                s_range = np.linspace(0.0, 4, 20)
                 cc = convergings
 
             elif tstr[-2:] == "si":
                 e_range = [10]
-                s_range = [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0]
+                s_range = np.linspace(0.0, 4, 20)
                 cc = convergingsi
 
             else:
@@ -630,6 +783,7 @@ def main() -> None:  # noqa: PLR0915, C901, PLR0912
                     conv_meas=ligand_measures["la"],
                     dive_meas=ligand_measures["st5"],
                     new_definer_dict=new_definer_dict,
+                    vdw_bond_cutoff=3,
                 )
 
                 converging_name = (
@@ -677,7 +831,6 @@ def main() -> None:  # noqa: PLR0915, C901, PLR0912
 
                 for attempt, scale in enumerate(
                     (
-                        "spec",
                         "from_0",
                         "spring",
                         "kamada",
@@ -739,9 +892,6 @@ def main() -> None:  # noqa: PLR0915, C901, PLR0912
                     else:
                         raise NotImplementedError
 
-                    if scale == "spec":
-                        continue
-
                     if scale == "from_0":
                         if "s" not in tstr:
                             continue
@@ -768,21 +918,16 @@ def main() -> None:  # noqa: PLR0915, C901, PLR0912
                     cage.write(structure_dir / f"{name}_unopt.mol")
 
                     potential_names = []
-                    if "ts_" in name:
-                    _, tstr, si, sj, _at = name.split("_")
-                    raise NotImplementedError("fix this")
-                    potential_names = []
-                    for i in range(20):
-                    potential_names.extend(
-                    [
-                        f"ts_{tstr}_{int(si) - 1}_{int(sj) - 1}_{i}",
-                        f"ts_{tstr}_{int(si) - 1}_{int(sj)}_{i}",
-                        f"ts_{tstr}_{int(si)}_{int(sj) - 1}_{i}",
-                        f"ts_{tstr}_{int(si)}_{int(sj)}_{i}",
-                    ]
-                    )
+                    for num in range(20):
+                        potential_names.extend(
+                            [
+                                f"ts_{tstr}_{i - 1}_{j - 1}_{num}",
+                                f"ts_{tstr}_{i - 1}_{j}_{num}",
+                                f"ts_{tstr}_{i}_{j - 1}_{num}",
+                                f"ts_{tstr}_{i}_{j}_{num}",
+                            ]
+                        )
 
-                    raise NotImplementedError
                     conformer = cgx.scram.optimise_cage(
                         molecule=cage,
                         name=name,
@@ -804,6 +949,91 @@ def main() -> None:  # noqa: PLR0915, C901, PLR0912
                         num_building_blocks=num_bbs,
                     )
 
+            if tstr in ("3P6", "4P8", "4P82"):
+                continue
+            # Rescan over the surface for improved energies.
+            for (i, vdw_e_value), (j, vdw_s_value) in it.product(
+                enumerate(e_range), enumerate(s_range)
+            ):
+                if tstr[-1] == "s":
+                    ligand_measures = {
+                        "la": {
+                            **la_values,
+                            "ivdw_e": vdw_e_value,
+                            "ivdw_s": vdw_s_value,
+                        },
+                        "st5": st5_values,
+                    }
+
+                elif tstr[-2:] == "si":
+                    ligand_measures = {
+                        "la": {
+                            **la_values,
+                            "svdw_e": vdw_e_value,
+                            "svdw_s": vdw_s_value,
+                        },
+                        "st5": st5_values,
+                    }
+
+                else:
+                    ligand_measures = {"la": la_values, "st5": st5_values}
+
+                forcefield = precursors_to_forcefield(
+                    pair=pair,
+                    diverging=diverging,
+                    converging=cc,
+                    conv_meas=ligand_measures["la"],
+                    dive_meas=ligand_measures["st5"],
+                    new_definer_dict=new_definer_dict,
+                    vdw_bond_cutoff=3,
+                )
+
+                name = f"ts_{tstr}_{i}_{j}_{attempt}"
+                logging.info("rescanning %s", name)
+
+                current_cage = stk.BuildingBlock.init_from_file(
+                    structure_dir / f"{name}_optc.mol"
+                )
+
+                if tstr in ("3P6s", "3P6si"):
+                    num_bbs = 9
+                elif tstr in ("4P8s", "4P8si", "4P82s", "4P82si"):
+                    num_bbs = 12
+                else:
+                    raise NotImplementedError
+
+                potential_names = []
+                for ix, jx in it.product(
+                    range(len(e_range)), range(len(s_range))
+                ):
+                    potential_names.append(f"ts_{tstr}_{ix}_{jx}_{attempt}")
+
+                conformer = cgx.scram.optimise_from_files(
+                    molecule=current_cage,
+                    name=name,
+                    output_dir=calculation_dir,
+                    forcefield=forcefield,
+                    platform=None,
+                    database_path=database_path,
+                    potential_names=potential_names,
+                )
+
+                conformer.molecule.with_centroid((0, 0, 0)).write(
+                    str(structure_dir / f"{name}_optc.mol")
+                )
+
+                analyse_cage(
+                    database_path=database_path,
+                    name=name,
+                    forcefield=forcefield,
+                    num_building_blocks=num_bbs,
+                )
+
+    make_distinct_plot(
+        database_path=database_path,
+        figure_dir=figure_dir,
+        filename="sterics_1d.png",
+    )
     make_plot(
         database_path=database_path,
         figure_dir=figure_dir,
