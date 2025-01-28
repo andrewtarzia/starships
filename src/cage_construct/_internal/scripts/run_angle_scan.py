@@ -23,7 +23,6 @@ from .utilities import (
     cbead_d,
     eb_str,
     ebead_c,
-    isomer_energy,
     precursors_to_forcefield,
     tetra_bead,
 )
@@ -200,6 +199,22 @@ def make_plot(  # noqa: PLR0915
         xtarget = (170,)
         ytarget = (7 / cg_scale,)
 
+    elif filename == "scan_13.png":
+        xoption2 = None
+        xoption = "d_d"
+        yoption = "b_a_c"
+        red_x = [7 / cg_scale] * 3
+        red_y = [90, 110, 120]
+        xlbl = r"$dd$  [$\mathrm{\AA}$]"
+        ylbl = "$bac$  [$^\\circ$]"
+        ax.axhline(y=90, c="k", ls="--", alpha=0.5)
+        ax.axhline(y=110, c="k", ls="--", alpha=0.5)
+        ax.axhline(y=120, c="k", ls="--", alpha=0.5)
+        ax.axvline(x=7 / cg_scale, c="k", ls="--", alpha=0.5)
+
+        xtarget = (7 / cg_scale,)
+        ytarget = (90, 110, 120)
+
     else:
         raise NotImplementedError
 
@@ -284,9 +299,10 @@ def make_energy_plot(
 ) -> None:
     """Visualise energies."""
     fig, axs = plt.subplots(
-        ncols=3, nrows=2, sharex=True, sharey=True, figsize=(16, 10)
+        ncols=4, nrows=2, sharex=True, sharey=True, figsize=(16, 10)
     )
-    combos = ("bac-aa", "bac-dde", "dd-dde")
+
+    combos = ("bac-aa", "bac-dde", "dd-dde", "bac-dd")
     row_plot = (
         {
             "ffx": "b_a_c",
@@ -294,7 +310,7 @@ def make_energy_plot(
             "xlim": (0, 120),
             "ylim": (None, None),
             "ylbl": eb_str(),
-            "xlbl": "observed diverging angle  [$^\\circ$]",
+            "xlbl": "observed rigid angle  [$^\\circ$]",
             "obs_source": "bba",
         },
         {
@@ -303,7 +319,7 @@ def make_energy_plot(
             "xlim": (0, 120),
             "ylim": (None, None),
             "ylbl": eb_str(),
-            "xlbl": "observed converging angle  [$^\\circ$]",
+            "xlbl": "observed twistable angle  [$^\\circ$]",
             "obs_source": "bba",
         },
     )
@@ -485,8 +501,8 @@ def make_geom_grid(
     filename: str,
 ) -> None:
     """Visualise energies."""
-    fig, axs = plt.subplots(ncols=3, nrows=1, figsize=(16, 5))
-    combos = ("bac-aa", "bac-dde", "dd-dde")
+    fig, axs = plt.subplots(ncols=4, nrows=1, figsize=(16, 5))
+    combos = ("bac-aa", "bac-dde", "dd-dde", "bac-dd")
 
     vmin = 0
     vmax = 0.6
@@ -496,12 +512,16 @@ def make_geom_grid(
             "aay": "converging_binder_binder_angles",
             "xlim": (0, 130),
             "ylim": (15, 50),
-            "xlbl": "observed diverging angle  [$^\\circ$]",
-            "ylbl": "observed converging angle  [$^\\circ$]",
+            "xlbl": "observed rigid angle  [$^\\circ$]",
+            "ylbl": "observed twistable angle  [$^\\circ$]",
         },
     )
     for axrow, rowd in zip([axs], row_plot, strict=True):
         for combo, ax in zip(combos, axrow, strict=True):
+            min_stable_x = float("inf")
+            max_stable_x = 0
+            min_stable_y = float("inf")
+            max_stable_y = 0
             for entry in cgx.utilities.AtomliteDatabase(
                 database_path
             ).get_entries():
@@ -513,6 +533,11 @@ def make_geom_grid(
                 c = float(entry.properties["energy_per_bb"])
                 if c < 0.1:  # noqa: PLR2004
                     zorder = 2
+                    min_stable_x = min((min(xs), min_stable_x))
+                    max_stable_x = max((max(xs), max_stable_x))
+                    min_stable_y = min((min(ys), min_stable_y))
+                    max_stable_y = max((max(ys), max_stable_y))
+
                 elif c < 0.3:  # noqa: PLR2004
                     zorder = 1
                 else:
@@ -537,6 +562,18 @@ def make_geom_grid(
             ax.set_ylabel(rowd["ylbl"], fontsize=16)
             ax.set_xlim(rowd["xlim"])
             ax.set_ylim(rowd["ylim"])
+            ax.axhspan(
+                ymin=min_stable_y,
+                ymax=max_stable_y,
+                facecolor="k",
+                alpha=0.2,
+            )
+            ax.axvspan(
+                xmin=min_stable_x,
+                xmax=max_stable_x,
+                facecolor="k",
+                alpha=0.2,
+            )
 
         cbar_ax = fig.add_axes([1.01, 0.2, 0.02, 0.7])  # type: ignore[call-overload]
         cmap = mpl.cm.Blues_r  # type: ignore[attr-defined]
@@ -613,13 +650,26 @@ def make_contour_plot(  # noqa: PLR0915
         ax.axhline(y=7 / cg_scale, c="k", ls="--", alpha=0.5)
         ax.axvline(x=170, c="k", ls="--", alpha=0.5)
 
+    elif filename in ("scan_13c.png", "scan_13.png"):
+        xoption = "d_d"
+        xoption2 = None
+        yoption = "b_a_c"
+        red_x = [7 / cg_scale] * 3
+        red_y = [90, 110, 120]
+        xlbl = r"$dd$  [$\mathrm{\AA}$]"
+        ylbl = "$bac$  [$^\\circ$]"
+        ax.axvline(x=7 / cg_scale, c="k", ls="--", alpha=0.5)
+        ax.axhline(y=90, c="k", ls="--", alpha=0.5)
+        ax.axhline(y=110, c="k", ls="--", alpha=0.5)
+        ax.axhline(y=120, c="k", ls="--", alpha=0.5)
+
     else:
         raise NotImplementedError
 
     if xoption2 is None:
-        cname = f"{yoption.replace('_', '')}-{xoption.replace('_', '')}"
+        cname = f"{yoption.replace('_', '')}-{xoption.replace('_', '')}_"
     else:
-        cname = f"{yoption.replace('_', '')}-{xoption2.replace('_', '')}"
+        cname = f"{yoption.replace('_', '')}-{xoption2.replace('_', '')}_"
 
     frame = cgx.utilities.AtomliteDatabase(database_path).get_property_df(
         properties=[
@@ -629,7 +679,6 @@ def make_contour_plot(  # noqa: PLR0915
         ]
     )
     frame = frame.filter(pl.col("key").str.contains(cname))
-
     # Plot the underlying grid.
     ax.scatter(
         frame[f"$.forcefield_dict.v_dict.{xoption}"],
@@ -680,54 +729,6 @@ def make_contour_plot(  # noqa: PLR0915
     cbar = fig.colorbar(cs)
     cbar.ax.tick_params(labelsize=16)
     cbar.ax.set_ylabel(eb_str(), fontsize=16)
-
-    fig.tight_layout()
-    fig.savefig(
-        figure_dir / filename,
-        dpi=360,
-        bbox_inches="tight",
-    )
-    fig.savefig(
-        figure_dir / filename.replace(".png", ".pdf"),
-        dpi=360,
-        bbox_inches="tight",
-    )
-    plt.close()
-
-
-def make_singular_plot(  # noqa: PLR0913
-    database_path: pathlib.Path,
-    figure_dir: pathlib.Path,
-    filename: str,
-    cname: str,
-    xoption: str,
-    xlbl: str,
-) -> None:
-    """Visualise energies."""
-    fig, ax = plt.subplots(figsize=(3, 5))
-
-    xs = []
-    cs = []
-    energies = []
-    for entry in cgx.utilities.AtomliteDatabase(database_path).get_entries():
-        if cname not in entry.key:
-            continue
-        x = float(entry.properties["forcefield_dict"]["v_dict"][xoption])
-
-        xs.append(x)
-        energies.append(entry.properties["energy_per_bb"])
-        cs.append(
-            "tab:blue"
-            if float(entry.properties["energy_per_bb"]) < isomer_energy()
-            else "tab:gray"
-        )
-
-    ax.scatter(xs, energies, c=cs, s=80, alpha=1.0, marker="o", ec="k")
-    ax.tick_params(axis="both", which="major", labelsize=16)
-    ax.set_xlabel(xlbl, fontsize=16)
-    ax.set_ylabel(eb_str(), fontsize=16)
-
-    ax.set_yscale("log")
 
     fig.tight_layout()
     fig.savefig(
@@ -799,6 +800,7 @@ def main() -> None:  # noqa: PLR0915
         "bac-aa": {"yr": bac_range, "xr": aa_range, "yl": "st5", "xl": "st5"},
         "bac-dde": {"yr": bac_range, "xr": dde_range, "yl": "st5", "xl": "la"},
         "dd-dde": {"yr": dd_range, "xr": dde_range, "yl": "la", "xl": "la"},
+        "bac-dd": {"yr": bac_range, "xr": dd_range, "yl": "st5", "xl": "la"},
     }
     if args.run:
         for cname, pair_range_dict in combos.items():
@@ -980,6 +982,17 @@ def main() -> None:  # noqa: PLR0915
                     num_building_blocks=9,
                 )
 
+    make_plot(
+        database_path=database_path,
+        figure_dir=figure_dir,
+        filename="scan_13.png",
+    )
+    make_contour_plot(
+        database_path=database_path,
+        figure_dir=figure_dir,
+        filename="scan_13c.png",
+    )
+    raise SystemExit
     make_geom_grid(
         database_path=database_path,
         figure_dir=figure_dir,
@@ -990,12 +1003,6 @@ def main() -> None:  # noqa: PLR0915
         figure_dir=figure_dir,
         filename="scan_11.png",
     )
-    make_geom_plot(
-        database_path=database_path,
-        figure_dir=figure_dir,
-        filename="scan_10.png",
-    )
-
     make_plot(
         database_path=database_path,
         figure_dir=figure_dir,
@@ -1006,23 +1013,6 @@ def main() -> None:  # noqa: PLR0915
         figure_dir=figure_dir,
         filename="scan_1c.png",
     )
-    make_singular_plot(
-        database_path=database_path,
-        figure_dir=figure_dir,
-        cname="bac-aa",
-        xoption="a_c",
-        xlbl=r"$a$-$c$  [$\mathrm{\AA}$]",
-        filename="scan_2.png",
-    )
-    make_singular_plot(
-        database_path=database_path,
-        figure_dir=figure_dir,
-        cname="bac-aa",
-        xoption="b_a_c",
-        xlbl="$b$-$a$-$c$  [$^\\circ$]",
-        filename="scan_3.png",
-    )
-
     make_plot(
         database_path=database_path,
         figure_dir=figure_dir,
@@ -1032,22 +1022,6 @@ def main() -> None:  # noqa: PLR0915
         database_path=database_path,
         figure_dir=figure_dir,
         filename="scan_4c.png",
-    )
-    make_singular_plot(
-        database_path=database_path,
-        figure_dir=figure_dir,
-        cname="bac-dde",
-        xoption="d_d_e",
-        xlbl="$d$-$d$-$e$  [$^\\circ$]",
-        filename="scan_5.png",
-    )
-    make_singular_plot(
-        database_path=database_path,
-        figure_dir=figure_dir,
-        cname="bac-dde",
-        xoption="b_a_c",
-        xlbl="$b$-$a$-$c$  [$^\\circ$]",
-        filename="scan_6.png",
     )
 
     make_plot(
@@ -1060,22 +1034,13 @@ def main() -> None:  # noqa: PLR0915
         figure_dir=figure_dir,
         filename="scan_7c.png",
     )
-    make_singular_plot(
+
+    make_geom_plot(
         database_path=database_path,
         figure_dir=figure_dir,
-        cname="dd-dde",
-        xoption="d_d",
-        xlbl=r"$d$-$d$  [$\mathrm{\AA}$]",
-        filename="scan_8.png",
+        filename="scan_10.png",
     )
-    make_singular_plot(
-        database_path=database_path,
-        figure_dir=figure_dir,
-        cname="dd-dde",
-        xoption="d_d_e",
-        xlbl="$d$-$d$-$e$  [$^\\circ$]",
-        filename="scan_9.png",
-    )
+
     names_to_viz(
         database_path=database_path,
         cname="bac-dde",
