@@ -779,15 +779,19 @@ constant_definer_dict = {
 }
 
 
-def precursors_to_forcefield(  # noqa: PLR0913, C901, PLR0915
+def precursors_to_forcefield(  # noqa: C901, PLR0912, PLR0913, PLR0915
     pair: str,
     diverging: cgx.molecular.Precursor,
     converging: cgx.molecular.Precursor,
     conv_meas: dict[str, float],
     dive_meas: dict[str, float],
     new_definer_dict: dict[str, tuple] | None = None,  # type: ignore[type-arg]
+    vdw_bond_cutoff: int | None = None,
 ) -> cgx.forcefields.ForceField:
     """Get a forcefield from precursor definitions."""
+    if vdw_bond_cutoff is None:
+        vdw_bond_cutoff = 2
+
     # Define bead libraries.
     present_beads = (
         cbead_d,
@@ -882,7 +886,7 @@ def precursors_to_forcefield(  # noqa: PLR0913, C901, PLR0915
     return cgx.systems_optimisation.get_forcefield_from_dict(
         identifier=f"{pair}ff",
         prefix=f"{pair}ff",
-        vdw_bond_cutoff=2,
+        vdw_bond_cutoff=vdw_bond_cutoff,
         present_beads=present_beads,
         definer_dict=definer_dict,
     )
