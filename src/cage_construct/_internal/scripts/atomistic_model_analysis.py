@@ -79,6 +79,9 @@ def main() -> None:
             )
             ldata = {
                 "binder_angles": calc.get_binder_angles(as_building_block),
+                "binder_binder_angle": calc.get_binder_binder_angle(
+                    as_building_block
+                ),
                 "binder_distance": calc.get_binder_distance(as_building_block),
                 "binder_adjacent_torsion": calc.get_binder_adjacent_torsion(
                     as_building_block
@@ -131,6 +134,37 @@ def main() -> None:
     fig.tight_layout()
     fig.savefig(figure_dir / "aa_cf_1.png", dpi=360, bbox_inches="tight")
     fig.savefig(figure_dir / "aa_cf_1.pdf", dpi=360, bbox_inches="tight")
+    plt.close()
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    for sname, ligand_dict in datas.items():
+        for num, ndict in ligand_dict.items():
+            logging.info(
+                "%s: avg. %s binder-binder-angle: %s",
+                sname,
+                name_parser(lmaps[num]),
+                np.mean([ndict[i]["binder_binder_angle"] for i in ndict]),
+            )
+
+            xs = [ndict[i]["binder_binder_angle"] for i in ndict]
+            ys = [ndict[i]["binder_distance"] for i in ndict]
+
+            ax.scatter(
+                xs,
+                ys,
+                edgecolor="k",
+                s=40,
+                label=f"{sname}_{num}",
+            )
+
+    ax.tick_params(axis="both", which="major", labelsize=16)
+    ax.set_xlabel("binder vector angle [deg]", fontsize=16)
+    ax.set_ylabel("N-N distance [AA]", fontsize=16)
+    ax.legend(fontsize=16)
+
+    fig.tight_layout()
+    fig.savefig(figure_dir / "aa_cf_2.png", dpi=360, bbox_inches="tight")
+    fig.savefig(figure_dir / "aa_cf_2.pdf", dpi=360, bbox_inches="tight")
     plt.close()
 
 
