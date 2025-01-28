@@ -30,6 +30,7 @@ def main() -> None:
         "xray_l1b_l2": structure_dir / "eb712bb_sq_2_res_withh.mol",
         "dft_l1_l7": structure_dir / "L7ST5_Td_conv.mol",
         "dft_l1_l2": structure_dir / "eb712bb_sq_2_res_withh.mol",
+        "xray_l7": structure_dir / "Pd_6L7_12_cleaned.mol",
     }
 
     lmaps = {
