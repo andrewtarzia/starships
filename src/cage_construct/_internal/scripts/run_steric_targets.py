@@ -45,6 +45,9 @@ cmap = {
     "4P82": "xkcd:forest green",
     "4P82s": "xkcd:kelly green",
     "4P82si": "xkcd:chartreuse",
+    "6P12": "xkcd:royal purple",
+    "6P12s": "xkcd:violet",
+    "6P12si": "xkcd:lilac",
 }
 
 dmap = {
@@ -57,6 +60,9 @@ dmap = {
     "4P82": ("xkcd:forest green", "M$_4$L$_4$L'$_4$-td"),
     "4P82s": ("xkcd:kelly green", "M$_4$L$_4$L'$_4$-td"),
     "4P82si": ("xkcd:kelly green", "M$_4$L$_4$L'$_4$-td"),
+    "6P12": ("xkcd:royal purple", "M$_6$L$_12$"),
+    "6P12s": ("xkcd:violet", "M$_6$L$_12$"),
+    "6P12si": ("xkcd:violet", "M$_6$L$_12$"),
 }
 
 
@@ -70,6 +76,9 @@ ls = {
     "4P82": "-",
     "4P82s": "-",
     "4P82si": "--",
+    "6P12": "-",
+    "6P12s": "-",
+    "6P12si": "--",
 }
 
 final_conformer = 9
@@ -308,13 +317,16 @@ def analyse_cage(
     name: str,
     forcefield: cgx.forcefields.ForceField,
     num_building_blocks: int,
+    rescan: bool,  # noqa: FBT001
 ) -> None:
     """Analyse a toy model cage."""
     database = cgx.utilities.AtomliteDatabase(database_path)
     properties = database.get_entry(key=name).properties
     final_molecule = database.get_molecule(name)
 
-    if "tstr" not in properties:
+    if "max_ss_dist" not in properties or rescan:
+        _, tstr, _, _, attempt = name.split("_")
+
         database.add_properties(
             key=name,
             property_dict={
@@ -323,13 +335,11 @@ def analyse_cage(
                     energy_decomposition=properties["energy_decomposition"],
                     number_building_blocks=num_building_blocks,
                 ),
-                "tstr": name.split("_")[1],
-                "attempt": name.split("_")[-1],
+                "tstr": tstr,
+                "attempt": attempt,
             },
         )
 
-    properties = database.get_entry(key=name).properties
-    if "bond_data" not in properties:
         g_measure = cgx.analysis.GeomMeasure.from_forcefield(forcefield)
         bond_data = g_measure.calculate_bonds(final_molecule)
         bond_data = {"_".join(i): bond_data[i] for i in bond_data}
@@ -350,9 +360,6 @@ def analyse_cage(
             },
         )
 
-    properties = database.get_entry(key=name).properties
-    if "max_ss_dist" not in properties:
-        tstr = properties["tstr"]
         ii_dists = (
             stko.molecule_analysis.GeometryAnalyser().get_metal_distances(
                 molecule=final_molecule,
@@ -435,7 +442,7 @@ def make_plot(
     ax.set_xlabel(r"$\sigma_{s}$  [$\mathrm{\AA}$]", fontsize=16)
     ax.set_ylabel(eb_str(), fontsize=16)
 
-    ax.legend(ncol=3, fontsize=16)
+    ax.legend(ncol=4, fontsize=16)
     ax.set_yscale("log")
 
     fig.tight_layout()
@@ -489,7 +496,7 @@ def make_distinct_plot(
     for tstr, (col, lbl) in dmap.items():
         if tstr in ("3P6", "4P8", "4P82"):
             continue
-        if tstr in ("3P6s", "4P8s", "4P82s"):
+        if tstr in ("3P6s", "4P8s", "4P82s", "6P12s"):
             ax = axs[0]
             ax.plot(
                 list(datas[tstr]),
@@ -505,7 +512,7 @@ def make_distinct_plot(
             )
             ax.set_title("w/o extender", fontsize=16)
 
-        elif tstr in ("3P6si", "4P8si", "4P82si"):
+        elif tstr in ("3P6si", "4P8si", "4P82si", "6P12si"):
             ax = axs[1]
             ax.plot(
                 list(datas[tstr]),
@@ -612,7 +619,7 @@ def ii_plot(  # noqa: C901, PLR0912
     ax.tick_params(axis="both", which="major", labelsize=16)
     ax.set_xlabel(r"$\sigma_{s}$  [$\AA$]", fontsize=16)
     ax.set_ylabel(xlbl, fontsize=16)
-    ax.legend(ncol=3, fontsize=16)
+    ax.legend(ncol=4, fontsize=16)
     ax.set_ylim(0, None)
 
     fig.tight_layout()
@@ -707,15 +714,18 @@ def main() -> None:  # noqa: PLR0915, C901, PLR0912
     }
 
     topologies = (
-        ("3P6", stk.cage.M3L6, (2, 1)),
-        ("3P6s", stk.cage.M3L6, (2, 1)),
-        ("3P6si", stk.cage.M3L6, (2, 1)),
-        ("4P8", cgx.topologies.CGM4L8, (1, 1)),
-        ("4P8s", cgx.topologies.CGM4L8, (1, 1)),
-        ("4P8si", cgx.topologies.CGM4L8, (1, 1)),
-        ("4P82", cgx.topologies.M4L82, (1, 1)),
-        ("4P82s", cgx.topologies.M4L82, (1, 1)),
-        ("4P82si", cgx.topologies.M4L82, (1, 1)),
+        ("3P6", stk.cage.M3L6),
+        ("4P8", cgx.topologies.CGM4L8),
+        ("4P82", cgx.topologies.M4L82),
+        ("6P12", stk.cage.M6L12Cube),
+        # ("3P6s", stk.cage.M3L6),  # noqa: ERA001
+        # ("4P8s", cgx.topologies.CGM4L8),  # noqa: ERA001
+        # ("4P82s", cgx.topologies.M4L82),  # noqa: ERA001
+        # ("6P12s", stk.cage.M6L12Cube),  # noqa: ERA001
+        ("3P6si", stk.cage.M3L6),
+        ("4P8si", cgx.topologies.CGM4L8),
+        ("4P82si", cgx.topologies.M4L82),
+        ("6P12si", stk.cage.M6L12Cube),
     )
     st5_values = {"ba": 2.8, "aa": 5.0, "bac": 120, "bacab": 180}
     la_values = {
@@ -728,7 +738,7 @@ def main() -> None:  # noqa: PLR0915, C901, PLR0912
     }
 
     if args.run:
-        for tstr, tfunction, _ in topologies:
+        for tstr, tfunction in topologies:
             if tstr[-1] == "s":
                 e_range = [10]
                 s_range = np.linspace(0.0, 4, 20)
@@ -777,7 +787,7 @@ def main() -> None:  # noqa: PLR0915, C901, PLR0912
                     conv_meas=ligand_measures["la"],
                     dive_meas=ligand_measures["st5"],
                     new_definer_dict=new_definer_dict,
-                    vdw_bond_cutoff=3,
+                    vdw_bond_cutoff=2,
                 )
 
                 converging_name = (
@@ -840,6 +850,20 @@ def main() -> None:  # noqa: PLR0915, C901, PLR0912
                     actual_scale = 1 if not isinstance(scale, float) else scale
 
                     name = f"ts_{tstr}_{i}_{j}_{attempt}"
+                    # Some skips.
+                    if attempt in (3, 4, 5, 6, 7, 8) and tstr in (
+                        "3P6s",
+                        "3P6si",
+                        "4P8s",
+                        "4P8si",
+                        "4P82s",
+                        "4P82si",
+                        "6P12s",
+                        "6P12si",
+                    ):
+                        logging.info("skipping %s", name)
+                        continue
+
                     logging.info("building %s", name)
 
                     if tstr in ("3P6", "3P6s", "3P6si"):
@@ -883,6 +907,17 @@ def main() -> None:  # noqa: PLR0915, C901, PLR0912
                             )
                         )
                         num_bbs = 12
+
+                    elif tstr in ("6P12", "6P12s", "6P12si"):
+                        cage = stk.ConstructedMolecule(
+                            tfunction(
+                                building_blocks=(tetra_bb, converging_bb),
+                                vertex_positions=None,
+                                scale_multiplier=actual_scale,
+                            )
+                        )
+                        num_bbs = 18
+
                     else:
                         raise NotImplementedError
 
@@ -941,9 +976,10 @@ def main() -> None:  # noqa: PLR0915, C901, PLR0912
                         name=name,
                         forcefield=forcefield,
                         num_building_blocks=num_bbs,
+                        rescan=False,
                     )
 
-            if tstr in ("3P6", "4P8", "4P82"):
+            if tstr in ("3P6", "4P8", "4P82", "6P12"):
                 continue
             # Rescan over the surface for improved energies.
             for (i, vdw_e_value), (j, vdw_s_value) in it.product(
@@ -993,6 +1029,8 @@ def main() -> None:  # noqa: PLR0915, C901, PLR0912
                     num_bbs = 9
                 elif tstr in ("4P8s", "4P8si", "4P82s", "4P82si"):
                     num_bbs = 12
+                elif tstr in ("6P12s", "6P12si"):
+                    num_bbs = 18
                 else:
                     raise NotImplementedError
 
@@ -1021,6 +1059,7 @@ def main() -> None:  # noqa: PLR0915, C901, PLR0912
                     name=name,
                     forcefield=forcefield,
                     num_building_blocks=num_bbs,
+                    rescan=True,
                 )
 
     make_distinct_plot(
@@ -1052,6 +1091,14 @@ def main() -> None:  # noqa: PLR0915, C901, PLR0912
         figure_dir=figure_dir,
         fileprefix="sterics_3",
     )
+
+    raise SystemExit("Add binder vector angle to this -- see if it flips out?")
+    raise SystemExit(
+        "A conclusion?> Based on angle maps, sterics are the only thing "
+        "pushing to other topologies"
+    )
+    raise SystemExit("get s-b distance, actually get all distributions")
+    raise SystemExit("then rethink how to set the FF and vdw based on that")
 
 
 if __name__ == "__main__":
