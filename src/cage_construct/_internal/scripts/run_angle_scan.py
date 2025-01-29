@@ -113,8 +113,6 @@ def analyse_cage(
         if as_building_block.get_num_functional_groups() != 2:  # noqa: PLR2004
             raise RuntimeError
 
-        as_building_block.write("t.mol")
-
         vectors = [
             as_building_block.get_centroid(atom_ids=fg.get_bonder_ids())
             - as_building_block.get_centroid(atom_ids=fg.get_deleter_ids())
