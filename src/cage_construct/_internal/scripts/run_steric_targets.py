@@ -37,16 +37,16 @@ RDLogger.DisableLog("rdApp.*")
 
 cmap = {
     "3P6": "xkcd:dark blue",
-    "3P6s": "xkcd:blue",
+    # "3P6s": "xkcd:blue",  # noqa: ERA001
     "3P6si": "xkcd:light blue",
     "4P8": "xkcd:dark orange",
-    "4P8s": "xkcd:orange",
+    # "4P8s": "xkcd:orange",# noqa: ERA001
     "4P8si": "xkcd:light orange",
     "4P82": "xkcd:forest green",
-    "4P82s": "xkcd:kelly green",
+    # "4P82s": "xkcd:kelly green",# noqa: ERA001
     "4P82si": "xkcd:chartreuse",
     "6P12": "xkcd:royal purple",
-    "6P12s": "xkcd:violet",
+    # "6P12s": "xkcd:violet",# noqa: ERA001
     "6P12si": "xkcd:lilac",
 }
 
@@ -68,17 +68,17 @@ dmap = {
 
 ls = {
     "3P6": "-",
-    "3P6s": "-",
-    "3P6si": "--",
+    "3P6s": "--",
+    "3P6si": "-",
     "4P8": "-",
-    "4P8s": "-",
-    "4P8si": "--",
+    "4P8s": "--",
+    "4P8si": "-",
     "4P82": "-",
-    "4P82s": "-",
-    "4P82si": "--",
+    "4P82s": "--",
+    "4P82si": "-",
     "6P12": "-",
-    "6P12s": "-",
-    "6P12si": "--",
+    "6P12s": "--",
+    "6P12si": "-",
 }
 
 final_conformer = 9
@@ -286,7 +286,7 @@ def geom_distributions(  # noqa: C901
                 facecolor=col,
                 linewidth=1.0,
                 edgecolor="none",
-                label=tstr,
+                label=dmap[tstr][1],
                 alpha=1.0,
             )
 
@@ -295,8 +295,8 @@ def geom_distributions(  # noqa: C901
         ax.set_xlabel("value-target", fontsize=16)
         ax.set_ylabel("frequency", fontsize=16)
         ax.set_yticks([])
-        if label == "Pb_Ga_Fe":
-            ax.legend(ncol=3, fontsize=16)
+        if label == "Ni_Ir_S":
+            ax.legend(ncol=1, fontsize=16)
 
     fig.tight_layout()
     fig.savefig(
@@ -324,7 +324,7 @@ def analyse_cage(
     properties = database.get_entry(key=name).properties
     final_molecule = database.get_molecule(name)
 
-    if "max_ss_dist" not in properties or rescan:
+    if "converging_binder_binder_angles" not in properties or rescan:
         _, tstr, _, _, attempt = name.split("_")
 
         database.add_properties(
@@ -396,6 +396,58 @@ def analyse_cage(
             },
         )
 
+        # Get the bg angles.
+        ligands = stko.molecule_analysis.DecomposeMOC().decompose(
+            molecule=final_molecule,
+            metal_atom_nos=(46,),
+        )
+
+        c_binder_binder_angles = []
+        d_binder_binder_angles = []
+        for lig in ligands:
+            if lig.get_num_atoms() in (8, 9, 10):
+                as_building_block = stk.BuildingBlock.init_from_molecule(
+                    lig,
+                    stk.SmartsFunctionalGroupFactory(
+                        smarts="[Pb]~[Ga]", bonders=(0,), deleters=(1,)
+                    ),
+                )
+                converging = True
+
+            elif lig.get_num_atoms() == 5:  # noqa: PLR2004
+                as_building_block = stk.BuildingBlock.init_from_molecule(
+                    lig,
+                    stk.SmartsFunctionalGroupFactory(
+                        smarts="[Pb]~[Ba]", bonders=(0,), deleters=(1,)
+                    ),
+                )
+                converging = False
+
+            if as_building_block.get_num_functional_groups() != 2:  # noqa: PLR2004
+                raise RuntimeError
+
+            vectors = [
+                as_building_block.get_centroid(atom_ids=fg.get_bonder_ids())
+                - as_building_block.get_centroid(atom_ids=fg.get_deleter_ids())
+                for fg in as_building_block.get_functional_groups()
+            ]
+            normed = [i / np.linalg.norm(i) for i in vectors]
+            angle = np.degrees(
+                stko.vector_angle(vector1=normed[0], vector2=normed[1])
+            )
+            if converging:
+                c_binder_binder_angles.append(angle)
+            else:
+                d_binder_binder_angles.append(angle)
+
+        database.add_properties(
+            key=name,
+            property_dict={
+                "converging_binder_binder_angles": c_binder_binder_angles,
+                "diverging_binder_binder_angles": d_binder_binder_angles,
+            },
+        )
+
 
 def make_plot(
     database_path: pathlib.Path,
@@ -418,7 +470,7 @@ def make_plot(
             x = entry.properties["forcefield_dict"]["v_dict"]["s"]
 
         else:
-            x = -0.2
+            x = -0.02
 
         y = entry.properties["energy_per_bb"]
 
@@ -434,7 +486,7 @@ def make_plot(
             mec="k",
             markersize=10,
             ls=ls[tstr],
-            label=f"{tstr}",
+            label=dmap[tstr][1],
             c="k" if "s" in tstr else "w",
         )
 
@@ -467,11 +519,11 @@ def make_distinct_plot(
     """Visualise energies."""
     steric_dict = get_steric_measures(figure_dir=figure_dir / "sterimol")
 
-    fig, axs = plt.subplots(
-        ncols=2,
+    fig, ax = plt.subplots(
+        ncols=1,
         sharey=True,
         sharex=True,
-        figsize=(16, 5),
+        figsize=(10, 5),
     )
 
     datas: dict[str, dict[str, list[float]]] = defaultdict(
@@ -487,7 +539,7 @@ def make_distinct_plot(
             x = entry.properties["forcefield_dict"]["v_dict"]["s"]
 
         else:
-            x = -0.2
+            x = -0.02
 
         y = entry.properties["energy_per_bb"]
 
@@ -497,7 +549,9 @@ def make_distinct_plot(
         if tstr in ("3P6", "4P8", "4P82"):
             continue
         if tstr in ("3P6s", "4P8s", "4P82s", "6P12s"):
-            ax = axs[0]
+            continue
+
+        if tstr in ("3P6si", "4P8si", "4P82si", "6P12si"):
             ax.plot(
                 list(datas[tstr]),
                 [min(datas[tstr][i]) for i in datas[tstr]],
@@ -510,33 +564,15 @@ def make_distinct_plot(
                 label=lbl,
                 c="k" if "s" in tstr else "w",
             )
-            ax.set_title("w/o extender", fontsize=16)
 
-        elif tstr in ("3P6si", "4P8si", "4P82si", "6P12si"):
-            ax = axs[1]
-            ax.plot(
-                list(datas[tstr]),
-                [min(datas[tstr][i]) for i in datas[tstr]],
-                alpha=1.0,
-                marker="o",
-                markerfacecolor=col,
-                mec="k",
-                markersize=10,
-                ls="-",
-                label=lbl,
-                c="k" if "s" in tstr else "w",
-            )
-            ax.set_title("w extender", fontsize=16)
-
-    for ax in axs:
-        ax.tick_params(axis="both", which="major", labelsize=16)
-        ax.set_xlabel(r"$\sigma_{s}$  [$\mathrm{\AA}$]", fontsize=16)
-        ax.set_ylabel(eb_str(), fontsize=16)
-        ax.set_yscale("log")
-        cg_scale = 2
-        for mname, smol in steric_dict.items():
-            ax.axvline(x=smol.L_value / cg_scale, c="k")
-            ax.text(x=smol.L_value / cg_scale, y=0.1, s=mname, fontsize=12)
+    ax.tick_params(axis="both", which="major", labelsize=16)
+    ax.set_xlabel(r"$\sigma_{s}$  [$\mathrm{\AA}$]", fontsize=16)
+    ax.set_ylabel(eb_str(), fontsize=16)
+    ax.set_yscale("log")
+    cg_scale = 2
+    for mname, smol in steric_dict.items():
+        ax.axvline(x=smol.L_value / cg_scale, c="k")
+        ax.text(x=smol.L_value / cg_scale, y=0.1, s=mname, fontsize=16)
 
     ax.legend(fontsize=16)
 
@@ -600,7 +636,7 @@ def ii_plot(  # noqa: C901, PLR0912
         xlbl = r"min. $r_{s-s}$ [$\AA$]"
         str_skip = "si"
 
-    for tstr, col in cmap.items():
+    for tstr in cmap:
         if str_skip not in tstr:
             continue
 
@@ -609,18 +645,134 @@ def ii_plot(  # noqa: C901, PLR0912
             [datas[tstr][i][0] for i in datas[tstr]],
             alpha=1.0,
             marker="o",
-            markerfacecolor=col,
+            markerfacecolor=dmap[tstr][0],
             mec="k",
             markersize=10,
             ls=ls[tstr],
-            label=f"{tstr}",
+            label=dmap[tstr][1],
             c="k",
         )
     ax.tick_params(axis="both", which="major", labelsize=16)
     ax.set_xlabel(r"$\sigma_{s}$  [$\AA$]", fontsize=16)
     ax.set_ylabel(xlbl, fontsize=16)
-    ax.legend(ncol=4, fontsize=16)
+    ax.legend(ncol=1, fontsize=16)
     ax.set_ylim(0, None)
+
+    fig.tight_layout()
+    fig.savefig(
+        figure_dir / filename,
+        dpi=360,
+        bbox_inches="tight",
+    )
+    fig.savefig(
+        figure_dir / filename.replace(".png", ".pdf"),
+        dpi=360,
+        bbox_inches="tight",
+    )
+    plt.close()
+
+
+def binder_vector_angles_plot(
+    database_path: pathlib.Path,
+    figure_dir: pathlib.Path,
+    filename: str,
+) -> None:
+    """Visualise energies."""
+    fig, (ax, ax1) = plt.subplots(
+        ncols=2,
+        sharey=True,
+        sharex=True,
+        figsize=(16, 5),
+    )
+
+    datas_l7: dict[str, dict[str, list[float]]] = defaultdict(
+        lambda: defaultdict(tuple)
+    )
+    datas_l1: dict[str, dict[str, list[float]]] = defaultdict(
+        lambda: defaultdict(tuple)
+    )
+    for entry in cgx.utilities.AtomliteDatabase(database_path).get_entries():
+        tstr = entry.properties["tstr"]
+
+        if tstr[-1] == "i":
+            x = entry.properties["forcefield_dict"]["v_dict"]["s"]
+
+        else:
+            continue
+
+        yl7 = entry.properties["converging_binder_binder_angles"]
+        yl1 = entry.properties["diverging_binder_binder_angles"]
+
+        try:
+            if entry.properties["energy_per_bb"] < datas_l7[tstr][x][1]:
+                datas_l7[tstr][x] = (yl7, entry.properties["energy_per_bb"])
+        except IndexError:
+            datas_l7[tstr][x] = (yl7, entry.properties["energy_per_bb"])
+
+        try:
+            if entry.properties["energy_per_bb"] < datas_l1[tstr][x][1]:
+                datas_l1[tstr][x] = (yl1, entry.properties["energy_per_bb"])
+        except IndexError:
+            datas_l1[tstr][x] = (yl1, entry.properties["energy_per_bb"])
+
+    for tstr in cmap:
+        if tstr not in datas_l1:
+            continue
+
+        if tstr not in ("6P12", "6P12s", "6P12si"):
+            ax.plot(
+                list(datas_l1[tstr]),
+                [np.mean(datas_l1[tstr][i][0]) for i in datas_l1[tstr]],
+                alpha=1.0,
+                marker="o",
+                markerfacecolor=dmap[tstr][0],
+                mec="k",
+                markersize=10,
+                ls=ls[tstr],
+                c="k",
+                zorder=2,
+            )
+            ax.fill_between(
+                list(datas_l1[tstr]),
+                y1=[np.min(datas_l1[tstr][i][0]) for i in datas_l1[tstr]],
+                y2=[np.max(datas_l1[tstr][i][0]) for i in datas_l1[tstr]],
+                alpha=0.6,
+                color=dmap[tstr][0],
+                edgecolor=(0, 0, 0, 2.0),
+                lw=0,
+            )
+        ax1.plot(
+            list(datas_l7[tstr]),
+            [np.mean(datas_l7[tstr][i][0]) for i in datas_l7[tstr]],
+            alpha=1.0,
+            marker="o",
+            markerfacecolor=dmap[tstr][0],
+            mec="k",
+            markersize=10,
+            ls=ls[tstr],
+            c="k",
+            zorder=2,
+            label=dmap[tstr][1],
+        )
+        ax1.fill_between(
+            list(datas_l7[tstr]),
+            y1=[np.min(datas_l7[tstr][i][0]) for i in datas_l7[tstr]],
+            y2=[np.max(datas_l7[tstr][i][0]) for i in datas_l7[tstr]],
+            alpha=0.6,
+            color=dmap[tstr][0],
+            edgecolor=(0, 0, 0, 2.0),
+            lw=0,
+        )
+
+    ax.tick_params(axis="both", which="major", labelsize=16)
+    ax.set_xlabel(r"$\sigma_{s}$  [$\AA$]", fontsize=16)
+    ax.set_ylabel("mean rigid binder angle [$^\\circ$]", fontsize=16)
+    ax.set_ylim(0, None)
+
+    ax1.tick_params(axis="both", which="major", labelsize=16)
+    ax1.set_xlabel(r"$\sigma_{s}$  [$\AA$]", fontsize=16)
+    ax1.set_ylabel("mean twistable binder angle [$^\\circ$]", fontsize=16)
+    ax1.legend(ncol=1, fontsize=16)
 
     fig.tight_layout()
     fig.savefig(
@@ -722,10 +874,10 @@ def main() -> None:  # noqa: PLR0915, C901, PLR0912
         # ("4P8s", cgx.topologies.CGM4L8),  # noqa: ERA001
         # ("4P82s", cgx.topologies.M4L82),  # noqa: ERA001
         # ("6P12s", stk.cage.M6L12Cube),  # noqa: ERA001
-        ("3P6si", stk.cage.M3L6),
-        ("4P8si", cgx.topologies.CGM4L8),
-        ("4P82si", cgx.topologies.M4L82),
         ("6P12si", stk.cage.M6L12Cube),
+        ("3P6si", stk.cage.M3L6),
+        ("4P82si", cgx.topologies.M4L82),
+        ("4P8si", cgx.topologies.CGM4L8),
     )
     st5_values = {"ba": 2.8, "aa": 5.0, "bac": 120, "bacab": 180}
     la_values = {
@@ -741,12 +893,12 @@ def main() -> None:  # noqa: PLR0915, C901, PLR0912
         for tstr, tfunction in topologies:
             if tstr[-1] == "s":
                 e_range = [10]
-                s_range = np.linspace(0.0, 4, 20)
+                s_range = np.linspace(0.0, 4, 10)
                 cc = convergings
 
             elif tstr[-2:] == "si":
                 e_range = [10]
-                s_range = np.linspace(0.0, 4, 20)
+                s_range = np.linspace(0.0, 4, 10)
                 cc = convergingsi
 
             else:
@@ -787,7 +939,7 @@ def main() -> None:  # noqa: PLR0915, C901, PLR0912
                     conv_meas=ligand_measures["la"],
                     dive_meas=ligand_measures["st5"],
                     new_definer_dict=new_definer_dict,
-                    vdw_bond_cutoff=2,
+                    vdw_bond_cutoff=3,
                 )
 
                 converging_name = (
@@ -947,9 +1099,15 @@ def main() -> None:  # noqa: PLR0915, C901, PLR0912
                     cage.write(structure_dir / f"{name}_unopt.mol")
 
                     potential_names = []
-                    for num in range(20):
+                    for num in range(10):
                         potential_names.extend(
                             [
+                                f"ts_{tstr}_{i - 3}_{j - 3}_{num}",
+                                f"ts_{tstr}_{i - 3}_{j}_{num}",
+                                f"ts_{tstr}_{i}_{j - 3}_{num}",
+                                f"ts_{tstr}_{i - 2}_{j - 2}_{num}",
+                                f"ts_{tstr}_{i - 2}_{j}_{num}",
+                                f"ts_{tstr}_{i}_{j - 2}_{num}",
                                 f"ts_{tstr}_{i - 1}_{j - 1}_{num}",
                                 f"ts_{tstr}_{i - 1}_{j}_{num}",
                                 f"ts_{tstr}_{i}_{j - 1}_{num}",
@@ -1092,13 +1250,26 @@ def main() -> None:  # noqa: PLR0915, C901, PLR0912
         fileprefix="sterics_3",
     )
 
+    binder_vector_angles_plot(
+        database_path=database_path,
+        figure_dir=figure_dir,
+        filename="sterics_5.png",
+    )
+
     raise SystemExit("Add binder vector angle to this -- see if it flips out?")
     raise SystemExit(
         "A conclusion?> Based on angle maps, sterics are the only thing "
         "pushing to other topologies"
     )
-    raise SystemExit("get s-b distance, actually get all distributions")
-    raise SystemExit("then rethink how to set the FF and vdw based on that")
+    raise SystemExit(
+        "Because, it seems, that only at high sterics, the 3p6 does flip"
+    )
+    raise SystemExit(
+        "consider that these systems are different ratios/stoichiometries"
+    )
+    raise SystemExit(
+        "all stable, so kinetic, thermo and stoich choce an impact, on mixture?"
+    )
 
 
 if __name__ == "__main__":
