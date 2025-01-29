@@ -869,6 +869,7 @@ def precursors_to_forcefield(  # noqa: C901, PLR0912, PLR0913, PLR0915
         definer_dict["dis"] = ("angle", 90, 1e2)
         definer_dict["edide"] = ("tors", "0134", 180, 50, 1)  # type: ignore[assignment]
         definer_dict["mbge"] = ("tors", "0123", 180, 50, 1)  # type: ignore[assignment]
+        definer_dict["edis"] = ("tors", "0123", 180, 50, 1)  # type: ignore[assignment]
         definer_dict["s"] = ("nb", conv_meas["svdw_e"], conv_meas["svdw_s"])
 
     if isinstance(diverging, cgx.molecular.TwoC1Arm):
