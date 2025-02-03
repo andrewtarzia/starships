@@ -523,7 +523,7 @@ def make_distinct_plot(
         ncols=1,
         sharey=True,
         sharex=True,
-        figsize=(10, 5),
+        figsize=(8, 5),
     )
 
     datas: dict[str, dict[str, list[float]]] = defaultdict(
@@ -1254,21 +1254,6 @@ def main() -> None:  # noqa: PLR0915, C901, PLR0912
         database_path=database_path,
         figure_dir=figure_dir,
         filename="sterics_5.png",
-    )
-
-    raise SystemExit("Add binder vector angle to this -- see if it flips out?")
-    raise SystemExit(
-        "A conclusion?> Based on angle maps, sterics are the only thing "
-        "pushing to other topologies"
-    )
-    raise SystemExit(
-        "Because, it seems, that only at high sterics, the 3p6 does flip"
-    )
-    raise SystemExit(
-        "consider that these systems are different ratios/stoichiometries"
-    )
-    raise SystemExit(
-        "all stable, so kinetic, thermo and stoich choce an impact, on mixture?"
     )
 
 
