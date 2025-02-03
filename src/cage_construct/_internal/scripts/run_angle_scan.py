@@ -990,7 +990,7 @@ def main() -> None:  # noqa: PLR0915
         figure_dir=figure_dir,
         filename="scan_13c.png",
     )
-    raise SystemExit
+
     make_geom_grid(
         database_path=database_path,
         figure_dir=figure_dir,
