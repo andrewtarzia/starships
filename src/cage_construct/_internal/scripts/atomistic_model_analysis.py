@@ -27,10 +27,10 @@ def main() -> None:
     figure_dir.mkdir(exist_ok=True)
 
     files = {
-        "xray_l1b_l2": structure_dir / "eb712bb_sq_2_res_withh.mol",
-        "dft_l1_l7": structure_dir / "L7ST5_Td_conv.mol",
-        "dft_l1_l2": structure_dir / "eb712bb_sq_2_res_withh.mol",
-        "xray_l7": structure_dir / "Pd_6L7_12_cleaned.mol",
+        "ship_xray_l1b_l2": structure_dir / "eb712bb_sq_2_res_withh.mol",
+        "Td_dft_l1_l7": structure_dir / "L7ST5_Td_conv.mol",
+        "ship_dft_l1_l2": structure_dir / "Pd3L12L24_EBDFT.mol",
+        "Oh_xray_l7": structure_dir / "Pd_6L7_12_cleaned.mol",
     }
 
     lmaps = {
@@ -41,12 +41,12 @@ def main() -> None:
     }
 
     manual_measures = {
-        "xray_l1b_l2": {
+        "ship_xray_l1b_l2": {
             40: {
                 "dde": [171.8, 165.1, 168.3, 169.4, 167.8, 166.5, 168.6, 169.8]
             }
         },
-        "dft_l1_l7": {50: {"dde": []}},
+        "Td_dft_l1_l7": {50: {"dde": []}},
     }
     logging.info(
         "%s: avg. %s dde: %s",
@@ -57,9 +57,6 @@ def main() -> None:
 
     datas = {}
     for sname, sfile in files.items():
-        if sname == "dft_l1_l2":
-            logging.warning("skips")
-            continue
         molecule = stk.BuildingBlock.init_from_file(sfile)
 
         ligands = stko.molecule_analysis.DecomposeMOC().decompose(
