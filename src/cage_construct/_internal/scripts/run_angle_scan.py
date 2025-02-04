@@ -597,6 +597,134 @@ def make_geom_grid(
     plt.close()
 
 
+def make_main_paper_geom_grid(  # noqa: PLR0915
+    database_path: pathlib.Path,
+    figure_dir: pathlib.Path,
+    filename: str,
+) -> None:
+    """Visualise energies."""
+    fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(6, 5))
+    combos = ("bac-dde",)
+    xoption = "d_d_e"
+    yoption = "b_a_c"
+    pairs = {
+        (120, 145): ("tab:red", "1"),
+        (130, 100): ("tab:orange", "2"),
+        (145, 125): ("tab:green", "3"),
+        (160, 125): ("tab:purple", "4"),
+        (170, 120): ("tab:cyan", "5-predicted"),
+    }
+
+    vmin = 0
+    vmax = 0.6
+    rowd = {
+        "ffx": "diverging_binder_binder_angles",
+        "aay": "converging_binder_binder_angles",
+        "xlim": (0, 130),
+        "ylim": (15, 50),
+        "xlbl": "observed L1-like angle  [$^\\circ$]",
+        "ylbl": "observed L2-like angle  [$^\\circ$]",
+    }
+
+    min_stable_x = float("inf")
+    max_stable_x = 0
+    min_stable_y = float("inf")
+    max_stable_y = 0
+    for entry in cgx.utilities.AtomliteDatabase(database_path).get_entries():
+        if combos[0] != entry.key.split("_")[1]:
+            continue
+
+        x = float(entry.properties["forcefield_dict"]["v_dict"][xoption])
+        y = float(entry.properties["forcefield_dict"]["v_dict"][yoption])
+
+        xs = entry.properties[rowd["ffx"]]
+        ys = entry.properties[rowd["aay"]]
+        c = float(entry.properties["energy_per_bb"])
+        if c < 0.1:  # noqa: PLR2004
+            zorder = 1
+            min_stable_x = min((min(xs), min_stable_x))
+            max_stable_x = max((max(xs), max_stable_x))
+            min_stable_y = min((min(ys), min_stable_y))
+            max_stable_y = max((max(ys), max_stable_y))
+
+        elif c < 0.3:  # noqa: PLR2004
+            zorder = 0
+        else:
+            zorder = -1
+
+        if (x, y) in pairs:
+            logging.info("see: %s, with x: %s and y: %s", entry.key, x, y)
+            ax.scatter(
+                np.mean(xs),
+                np.mean(ys),
+                c="none",
+                alpha=1.0,
+                edgecolor=pairs[(x, y)][0],
+                s=200,
+                linewidth=2,
+                zorder=2,
+                label=pairs[(x, y)][1],
+            )
+
+        ax.scatter(
+            np.mean(xs),
+            np.mean(ys),
+            c=c,
+            alpha=1.0,
+            edgecolor="k",
+            s=60,
+            zorder=zorder,
+            vmin=vmin,
+            vmax=vmax,
+            cmap="Blues_r",
+        )
+
+    ax.tick_params(axis="both", which="major", labelsize=16)
+    ax.set_xlabel(rowd["xlbl"], fontsize=16)
+    ax.set_ylabel(rowd["ylbl"], fontsize=16)
+    ax.set_xlim(rowd["xlim"])
+    ax.set_ylim(rowd["ylim"])
+    ax.axhspan(
+        ymin=min_stable_y,
+        ymax=max_stable_y,
+        facecolor="k",
+        alpha=0.2,
+        zorder=-2,
+    )
+    ax.axvspan(
+        xmin=min_stable_x,
+        xmax=max_stable_x,
+        facecolor="k",
+        alpha=0.2,
+        zorder=-2,
+    )
+
+    cbar_ax = fig.add_axes([1.01, 0.2, 0.02, 0.7])  # type: ignore[call-overload]
+    cmap = mpl.cm.Blues_r  # type: ignore[attr-defined]
+    norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
+    cbar = fig.colorbar(
+        mpl.cm.ScalarMappable(norm=norm, cmap=cmap),
+        cax=cbar_ax,
+        orientation="vertical",
+    )
+    cbar.ax.tick_params(labelsize=16)
+    cbar.set_label(eb_str(), fontsize=16)
+    ax.legend(fontsize=16)
+    fig.tight_layout()
+    fig.savefig(
+        figure_dir / filename,
+        dpi=360,
+        bbox_inches="tight",
+    )
+    fig.savefig(
+        figure_dir / filename.replace(".png", ".pdf"),
+        dpi=360,
+        bbox_inches="tight",
+    )
+    plt.close()
+    raise SystemExit
+
+
 def make_contour_plot(  # noqa: PLR0915
     database_path: pathlib.Path,
     figure_dir: pathlib.Path,
@@ -980,6 +1108,11 @@ def main() -> None:  # noqa: PLR0915
                     num_building_blocks=9,
                 )
 
+    make_main_paper_geom_grid(
+        database_path=database_path,
+        figure_dir=figure_dir,
+        filename="scan_14.png",
+    )
     make_plot(
         database_path=database_path,
         figure_dir=figure_dir,
@@ -1039,10 +1172,7 @@ def main() -> None:  # noqa: PLR0915
         filename="scan_10.png",
     )
 
-    names_to_viz(
-        database_path=database_path,
-        cname="bac-dde",
-    )
+    names_to_viz(database_path=database_path, cname="bac-dde")
 
 
 if __name__ == "__main__":
