@@ -465,7 +465,6 @@ def main() -> None:  # noqa: PLR0915
         filename="1dscan_1.png",
         scans=scans,
     )
-    raise SystemExit
 
 
 if __name__ == "__main__":

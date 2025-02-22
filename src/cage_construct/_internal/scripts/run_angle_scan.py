@@ -722,7 +722,6 @@ def make_main_paper_geom_grid(  # noqa: PLR0915
         bbox_inches="tight",
     )
     plt.close()
-    raise SystemExit
 
 
 def make_contour_plot(  # noqa: PLR0915
