@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "starships"
 maintainers = [{ name = "Andrew Tarzia", email = "andrew.tarzia@gmail.com" }]
 
-dependencies = ["stk", "stko", "cgexplore", "morfeus-ml"]
+dependencies = ["stk", "stko", "cgexplore"]
 requires-python = ">=3.11"
 dynamic = ["version"]
 readme = "README.rst"
@@ -22,7 +22,6 @@ crest_analysis = "cage_construct._internal.scripts.crest_analysis:main"
 run_angle_scan = "cage_construct._internal.scripts.run_angle_scan:main"
 run_1d_scan = "cage_construct._internal.scripts.run_1d_scan:main"
 run_cg_model = "cage_construct._internal.scripts.run_cg_model:main"
-run_steric_targets = "cage_construct._internal.scripts.run_steric_targets:main"
 
 [project.urls]
 github = "https://github.com/andrewtarzia/starships"
