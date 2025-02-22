@@ -642,7 +642,6 @@ def main() -> None:  # noqa: PLR0915
         figure_dir=figure_dir,
         filename="rerun_4_si.png",
     )
-    raise SystemExit
     for pair in pairs:
         make_plot(
             database_path=database_path,
