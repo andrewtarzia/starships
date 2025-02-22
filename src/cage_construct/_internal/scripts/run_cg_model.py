@@ -602,6 +602,7 @@ def main() -> None:  # noqa: PLR0915
                             forcefield=forcefield,
                             platform=None,
                             database_path=database_path,
+                            potential_names=[],
                         )
                         if conformer is not None:
                             conformer.molecule.with_centroid((0, 0, 0)).write(

@@ -50,9 +50,9 @@ def main() -> None:
     }
     logging.info(
         "%s: avg. %s dde: %s",
-        "xray_l1b_l2",
+        "ship_xray_l1b_l2",
         name_parser(lmaps[40]),
-        np.mean([manual_measures["xray_l1b_l2"][40]["dde"]]),
+        np.mean([manual_measures["ship_xray_l1b_l2"][40]["dde"]]),
     )
 
     datas = {}
