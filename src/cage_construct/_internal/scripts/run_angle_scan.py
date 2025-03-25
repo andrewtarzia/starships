@@ -44,6 +44,69 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def save_to_chemiscope(
+    database_path: pathlib.Path, figure_dir: pathlib.Path, cname: str
+) -> None:
+    """Save one grid to chemiscope."""
+    xoption = "d_d_e"
+    yoption = "b_a_c"
+
+    properties_to_get = (
+        "E_b / kjmol-1",
+        "bac / deg",
+        "dde / deg",
+        "avg. BA_r / deg",
+        "avg. BA_t / deg",
+    )
+
+    database = cgx.utilities.AtomliteDatabase(database_path)
+    structures = []
+    properties = {i: [] for i in properties_to_get}
+    for entry in database.get_entries():
+        if cname not in entry.key:
+            continue
+        properties["dde / deg"].append(
+            float(entry.properties["forcefield_dict"]["v_dict"][xoption])
+        )
+        properties["bac / deg"].append(
+            float(entry.properties["forcefield_dict"]["v_dict"][yoption])
+        )
+        properties["E_b / kjmol-1"].append(
+            float(entry.properties["energy_per_bb"])
+        )
+        properties["avg. BA_r / deg"].append(
+            np.mean(entry.properties["diverging_binder_binder_angles"])
+        )
+        properties["avg. BA_t / deg"].append(
+            np.mean(entry.properties["converging_binder_binder_angles"])
+        )
+
+        structures.append(database.get_molecule(entry.key))
+
+    logging.info(
+        "structures: %s, properties: %s",
+        len(structures),
+        len(properties),
+    )
+    cgx.utilities.write_chemiscope_json(
+        json_file=figure_dir / "cs_bac-dde_starships.json.gz",
+        structures=structures,
+        properties=properties,
+        bonds_as_shapes=True,
+        meta_dict={
+            "name": "CGGeom: starshsips",
+            "description": ("Minimal models in starship topology."),
+            "authors": ["Andrew Tarzia"],
+            "references": [],
+        },
+        x_axis_dict={"property": "dde / deg"},
+        y_axis_dict={"property": "bac / deg"},
+        z_axis_dict={"property": ""},
+        color_dict={"property": "E_b / kjmol-1", "min": 0, "max": 1.0},
+        bond_hex_colour="#919294",
+    )
+
+
 def analyse_cage(
     database_path: pathlib.Path,
     name: str,
@@ -1107,6 +1170,9 @@ def main() -> None:  # noqa: PLR0915
                     num_building_blocks=9,
                 )
 
+    save_to_chemiscope(
+        database_path=database_path, figure_dir=figure_dir, cname="bac-dde"
+    )
     make_main_paper_geom_grid(
         database_path=database_path,
         figure_dir=figure_dir,
