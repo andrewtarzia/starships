@@ -265,30 +265,30 @@ def make_summary_plot2(  # noqa: C901
         fig, ax = plt.subplots(figsize=(8, 3))
         systems = {
             ("la_st5", "1"): {"name": "s-1", "data": []},
-            ("la_st5", "2"): {"name": "s-2", "data": []},
-            ("la_st5", "4"): {"name": "s-4", "data": []},
+            # ("la_st5", "2"): {"name": "s-2", "data": []},
+            # ("la_st5", "4"): {"name": "s-4", "data": []},
             ("la_st52", "1"): {"name": "l-1", "data": []},
-            ("la_st52", "2"): {"name": "l-2", "data": []},
-            ("la_st52", "4"): {"name": "l-4", "data": []},
+            # ("la_st52", "2"): {"name": "l-2", "data": []},
+            # ("la_st52", "4"): {"name": "l-4", "data": []},
             ("la_st5_11", "1"): {"name": "s,1:1-1", "data": []},
             ("la_st5_11", "2"): {"name": "s,1:1-2", "data": []},
             ("la_st5_11", "3"): {"name": "s,1:1-3", "data": []},
         }
-        ax.axvline(x=2 + 0.5, c="gray")
-        ax.axvline(x=5 + 0.5, c="gray")
+        ax.axvline(x=0 + 0.5, c="gray")
+        ax.axvline(x=1 + 0.5, c="gray")
 
     elif "si" in filename:
         fig, ax = plt.subplots(figsize=(8, 5))
         systems = {
             ("la_st5", "1"): {"name": f"{st5}-s-1", "data": []},
-            ("la_st5", "2"): {"name": f"{st5}-s-2", "data": []},
-            ("la_st5", "4"): {"name": f"{st5}-s-4", "data": []},
+            # ("la_st5", "2"): {"name": f"{st5}-s-2", "data": []},
+            # ("la_st5", "4"): {"name": f"{st5}-s-4", "data": []},
             ("la_st52", "1"): {"name": f"{st5}-l-1", "data": []},
-            ("la_st52", "2"): {"name": f"{st5}-l-2", "data": []},
-            ("la_st52", "4"): {"name": f"{st5}-l-4", "data": []},
+            # ("la_st52", "2"): {"name": f"{st5}-l-2", "data": []},
+            # ("la_st52", "4"): {"name": f"{st5}-l-4", "data": []},
             ("la_c1", "1"): {"name": f"{c1}-1", "data": []},
-            ("la_c1", "2"): {"name": f"{c1}-2", "data": []},
-            ("la_c1", "4"): {"name": f"{c1}-4", "data": []},
+            # ("la_c1", "2"): {"name": f"{c1}-2", "data": []},
+            # ("la_c1", "4"): {"name": f"{c1}-4", "data": []},
             ("la_st5_11", "1"): {"name": f"{st5}-s,1:1-1", "data": []},
             ("la_st5_11", "2"): {"name": f"{st5}-s,1:1-2", "data": []},
             ("la_st5_11", "3"): {"name": f"{st5}-s,1:1-3", "data": []},
@@ -296,10 +296,10 @@ def make_summary_plot2(  # noqa: C901
             ("la_st52_11", "2"): {"name": f"{st5}-l,1:1-2", "data": []},
             ("la_st52_11", "3"): {"name": f"{st5}-l,1:1-3", "data": []},
         }
+        ax.axvline(x=0 + 0.5, c="gray")
+        ax.axvline(x=1 + 0.5, c="gray")
         ax.axvline(x=2 + 0.5, c="gray")
         ax.axvline(x=5 + 0.5, c="gray")
-        ax.axvline(x=8 + 0.5, c="gray")
-        ax.axvline(x=11 + 0.5, c="gray")
 
     count_423 = 0
     count_111 = 0
@@ -320,7 +320,7 @@ def make_summary_plot2(  # noqa: C901
 
         if pair == "la_st5_11":
             count_111 += 1
-        elif pair == "la_st5":
+        elif pair == "la_st5" and multi == "1":
             count_423 += 1
 
     if "si" in filename:
@@ -362,7 +362,7 @@ def make_summary_plot2(  # noqa: C901
     ax.set_xticklabels([systems[i]["name"] for i in systems], rotation=rot)  # type: ignore[misc]
     ax.set_ylabel(eb_str(), fontsize=16)
     ax.set_yscale("log")
-    ax.set_ylim(0.01, None)
+    ax.set_ylim(0.1, None)
 
     fig.tight_layout()
     fig.savefig(
@@ -432,7 +432,7 @@ def main() -> None:  # noqa: PLR0915
                 bead=tetra_bead,
                 abead1=binder_bead,
             ),
-            "multipliers": (1, 2, 4),
+            "multipliers": (1,),
         },
         "la_st52": {
             "converging_name": "la",
@@ -451,7 +451,7 @@ def main() -> None:  # noqa: PLR0915
                 bead=tetra_bead,
                 abead1=binder_bead,
             ),
-            "multipliers": (1, 2, 4),
+            "multipliers": (1,),
         },
         "la_c1": {
             "converging_name": "la",
@@ -470,7 +470,7 @@ def main() -> None:  # noqa: PLR0915
                 bead=tetra_bead,
                 abead1=binder_bead,
             ),
-            "multipliers": (1, 2, 4),
+            "multipliers": (1,),
         },
         "la_st5_11": {
             "converging_name": "la",
